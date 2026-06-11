@@ -32,6 +32,7 @@ Thumbs.db
 # Test / tooling
 .playwright/
 test-results/
+*.tsbuildinfo
 
 # Local saves / scratch
 .local/

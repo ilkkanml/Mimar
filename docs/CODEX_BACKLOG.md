@@ -23,7 +23,7 @@ Notes:
 
 Milestone: M1  
 Priority: P0  
-Status: Todo
+Status: Done
 
 ### Context
 
@@ -45,13 +45,19 @@ Proje şu an dokümantasyon aşamasında. İlk kod temeli kurulacak.
 - `npm run build` çalışır.
 - `npm test` boş veya örnek testle çalışır.
 
+### Completion notes
+
+- Vite + React + TypeScript foundation added.
+- Strict TypeScript, ESLint, Prettier, Vitest, and GitHub Actions CI added.
+- `src/` foundation follows `docs/TECHNICAL_ARCHITECTURE.md`.
+
 ---
 
 ## M1-002 — Add core domain types
 
 Milestone: M1  
 Priority: P0  
-Status: Todo
+Status: Done
 
 ### Tasks
 
@@ -68,13 +74,18 @@ Status: Todo
 - TypeScript strict modda tipler hatasız derlenir.
 - Tipler simulation ve UI'dan bağımsızdır.
 
+### Completion notes
+
+- Core domain types added under `src/game/state`.
+- Types remain independent from React/UI components.
+
 ---
 
 ## M1-003 — Add first node definitions
 
 Milestone: M1  
 Priority: P0  
-Status: Todo
+Status: Done
 
 ### Tasks
 
@@ -96,13 +107,18 @@ Status: Todo
 - Her node input/output port ve base stat içerir.
 - Unit test: tüm node definition'lar valid.
 
+### Completion notes
+
+- First six M1 node definitions added under `src/game/data`.
+- Unit tests validate ids, categories, M1 resources, ports, stats, and lookup.
+
 ---
 
 ## M1-004 — Implement graph state actions
 
 Milestone: M1  
 Priority: P0  
-Status: Todo
+Status: Done
 
 ### Tasks
 
@@ -120,13 +136,20 @@ Status: Todo
 - Node silinince ilgili edge'ler silinir.
 - State mutation güvenli ve test edilebilir olur.
 
+### Completion notes
+
+- Pure graph state actions added under `src/game/state/actions.ts`.
+- Add, move, delete, select, connect, and delete-edge actions return new state without mutating the previous state.
+- Unit tests cover unique ids, immutable updates, selection, edge creation, edge deletion, and node deletion cleanup.
+- Connection rule validation is intentionally left for M1-005.
+
 ---
 
 ## M1-005 — Implement connection validation
 
 Milestone: M1  
 Priority: P0  
-Status: Todo
+Status: Done
 
 ### Tasks
 
@@ -141,6 +164,13 @@ Status: Todo
 - Geçersiz bağlantılar state'e yazılmaz.
 - UI validation reason gösterebilir.
 - Unit tests: valid edge, invalid direction, resource mismatch, same node.
+
+### Completion notes
+
+- Connection validation added under `src/game/graph/validation.ts`.
+- Validation covers missing node, missing definition, missing port, same node, invalid direction, resource mismatch, and optional port capacity.
+- `connectNodesIfValid` writes valid edges and returns validation reasons without mutating state for invalid connections.
+- Unit tests cover valid edge, invalid direction, resource mismatch, same node, missing guards, and invalid connection state safety.
 
 ---
 

@@ -174,3 +174,65 @@ Consequences:
 - Yeni oturumlarda ilk okunacak dosya `PROJECT_CONTEXT.md`.
 - Codex için çalışma talimatları `AGENTS.md` içinde.
 - İlk uygulama işi M1-001 ile başlar.
+
+---
+
+## 2026-06-11 — M1 implementation foundation başlatıldı
+
+Status: Accepted
+
+Decision:
+
+M1 project setup için Vite + React + TypeScript kullanılacak. İlk kod pass'i sadece runnable app foundation, UI'dan bağımsız core domain types ve ilk 6 node definition ile sınırlı kalacak.
+
+Context:
+
+`CODEX_START_HERE.md`, `docs/CODEX_BACKLOG.md` ve `docs/M1_ATOMIC_TASKS.md` M1-001, M1-002 ve M1-003 sırasını ilk implementation slice olarak tanımlıyor. Kullanıcı UI işinin M1-007'den önce başlamamasını istedi.
+
+Consequences:
+
+- `src/app` sadece Vite React bootstrap için var; graph canvas veya visual UI implementasyonu yok.
+- `src/game/state` domain type layer'ını tutar ve React'e bağlı değildir.
+- `src/game/data/nodeDefinitions.ts` sadece M1'in ilk 6 node'unu export eder.
+- Quality gate `npm run lint`, `npm test` ve `npm run build` komutlarıyla çalışır.
+
+---
+
+## 2026-06-11 — Graph state actions pure reducer-style fonksiyonlar olacak
+
+Status: Accepted
+
+Decision:
+
+M1-004 graph actionları React store veya UI component içine gömülmeden pure TypeScript fonksiyonları olarak tutulacak. Action'lar mevcut `GameState` alıp yeni `GameState` döndürür; node/edge oluşturma action'ları oluşturulan instance'ı da sonuç olarak verir.
+
+Context:
+
+M1-004 sadece add/move/delete/select/connect/delete-edge davranışlarını istiyor. M1-005 bağlantı doğrulama işini ayrı bir backlog item olarak tanımladığı için port direction, resource compatibility ve validation reason sistemi bu adımda uygulanmadı.
+
+Consequences:
+
+- `src/game/state/actions.ts` UI'dan bağımsız ve unit-test edilebilir kaldı.
+- Node silme ilişkili edge'leri ve selection referanslarını temizler.
+- `connectNodes` düşük seviyeli edge oluşturma action'ı olarak kaldı; geçerli/geçersiz bağlantı kuralları M1-005'te eklenecek.
+
+---
+
+## 2026-06-11 — Connection validation graph modülünde tutulacak
+
+Status: Accepted
+
+Decision:
+
+Bağlantı kuralları `src/game/graph/validation.ts` içinde UI'dan bağımsız pure function olarak tutulacak. Validasyon sonucu UI'ın gösterebileceği stable reason değerleri döndürür. State'e edge yazmak için validasyonlu `connectNodesIfValid` action'ı kullanılacak.
+
+Context:
+
+M1-005 output-to-input, resource compatibility, same-node rejection, missing node/port guard ve validation reason istiyor. M1-006 simulation tick başlamadan önce graph bağlantılarının güvenli edge state üretmesi gerekiyor.
+
+Consequences:
+
+- Geçersiz bağlantılar graph state'e yazılmaz.
+- Edge resource type ve throughput limit valid portlardan türetilir.
+- M1 için special wildcard port tipleri uygulanmadı; ilk 6 node concrete resource tipleriyle çalışıyor.
+- UI geldiğinde validation reason doğrudan kullanıcı mesajına çevrilebilir.

@@ -14,7 +14,7 @@ Status değerleri:
 | Milestone | Ad | Status | Amaç |
 |---|---|---|---|
 | M0 | Project Foundation | Done | Tasarım, mimari ve Codex bağlamını kurmak |
-| M1 | Vertical Prototype | Not Started | İlk çalışan node graph + simulation prototipi |
+| M1 | Vertical Prototype | In Progress | İlk çalışan node graph + simulation prototipi |
 | M2 | Core Systems Slice | Not Started | Power/heat, contracts, research, UX quality |
 | M3 | Side Operations Slice | Not Started | Crypto mining + legal cyber ops |
 | M4 | AI & Cloud Economy | Not Started | AI trainer, AI API, cloud rental, CDN |
