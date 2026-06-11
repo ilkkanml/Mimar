@@ -16,6 +16,21 @@ This is the first file to give Codex when implementation starts.
 10. `specs/PORT_TYPE_RULES.md`
 11. `specs/save-game.v0.json`
 
+## Required visual reading before UI work
+
+Before implementing any UI component, screen, style, menu, market surface, animation, or layout, read:
+
+1. `docs/THEME_TOKENS.md`
+2. `docs/VISUAL_BIBLE.md`
+3. `docs/SCREEN_FLOW.md`
+4. `docs/UI_COMPONENT_SPEC.md`
+5. `docs/ICONOGRAPHY.md`
+6. `docs/MOTION_AND_FEEDBACK.md`
+7. `docs/MARKET_STORE_SPEC.md`
+8. `docs/FIGMA_BRIEF.md`
+
+Codex must not invent visual design. If a UI decision is missing, add a TODO and stop instead of creating a new visual direction.
+
 ## Active milestone
 
 Start with M1 only.
@@ -37,6 +52,14 @@ Implement M1-001 through M1-003 from docs/CODEX_BACKLOG.md:
 Keep simulation code separate from UI code. Do not implement side operations yet. Add or prepare the required quality scripts. Update docs/DECISION_LOG.md after implementation.
 ```
 
+## UI implementation prompt for Codex
+
+Use this before M1-007 or any later UI task:
+
+```text
+Before implementing UI, read the Required visual reading section in CODEX_START_HERE.md. Implement only the UI components required by the active backlog item. Use docs/THEME_TOKENS.md exactly. Do not invent colors, layout, menu structure, market screens, animations, or icon style. If a visual decision is missing, add a TODO and stop.
+```
+
 ## Continuation prompt
 
 Use this when continuing in a new Codex session:
@@ -50,6 +73,7 @@ Read CODEX_START_HERE.md and PROJECT_CONTEXT.md. Continue the first incomplete i
 - Do not invent a new architecture.
 - Do not skip the backlog order.
 - Do not mix multiple milestones unless explicitly requested.
+- Do not invent visual design; follow the visual specs.
 - Do not add real implementation details for sensitive fictional systems; use the abstract design rules in docs/RISK_AND_ETHICS.md.
 - Do not mark work done without testing notes.
 - Do not change save shape without considering schema version and migration notes.
