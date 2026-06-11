@@ -178,7 +178,7 @@ Status: Done
 
 Milestone: M1  
 Priority: P0  
-Status: Todo
+Status: Done
 
 ### Tasks
 
@@ -196,6 +196,13 @@ Status: Todo
 - Research Lab clean data tüketip research/sec üretir.
 - Compute yetmezse throughput düşer.
 - Integration test yazılır.
+
+### Completion notes
+
+- Fixed tick simulation added under `src/game/simulation/tick.ts`.
+- Simulation moves resources across edges through node buffers, processes node conversions, produces money/research, and calculates compute capacity/usage.
+- Node runtime stats now include basic throughput and bottleneck reason for `input_starved` and `compute_limited`.
+- Integration tests cover money production, research production, compute throttling, and edge resource movement.
 
 ---
 

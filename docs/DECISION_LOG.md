@@ -236,3 +236,24 @@ Consequences:
 - Edge resource type ve throughput limit valid portlardan türetilir.
 - M1 için special wildcard port tipleri uygulanmadı; ilk 6 node concrete resource tipleriyle çalışıyor.
 - UI geldiğinde validation reason doğrudan kullanıcı mesajına çevrilebilir.
+
+---
+
+## 2026-06-11 — M1 simulation continuous buffer flow kullanacak
+
+Status: Accepted
+
+Decision:
+
+M1-006 simulation tick pure TypeScript domain fonksiyonu olarak `src/game/simulation/tick.ts` içinde tutulacak. İlk implementation continuous resource flow ve node input/output buffer'ları kullanır; money ve research global resource balance olarak birikir.
+
+Context:
+
+M1-006 ilk pipeline'ın para üretmesini, Research Lab'in research üretmesini, edge üzerinden resource movement olmasını ve compute kapasite etkisini istiyor. Teknik mimari simulation'ın UI'dan bağımsız ve deterministic olmasını şart koşuyor.
+
+Consequences:
+
+- `tickGameState` fixed tick varsayılanı olarak 10 tick/sec kullanır.
+- Compute M1'de global capacity/usage olarak hesaplanır; CPU Rack kapasite sağlar.
+- Parser/Cleaner/Research Lab compute yetersizliğinde `compute_limited`, input yokluğunda `input_starved` runtime reason üretir.
+- Power/heat, contracts, save/load ve UI feedback bu adımda uygulanmadı; sıradaki milestone/backlog item'larına bırakıldı.
