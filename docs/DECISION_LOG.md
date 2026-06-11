@@ -257,3 +257,24 @@ Consequences:
 - Compute M1'de global capacity/usage olarak hesaplanır; CPU Rack kapasite sağlar.
 - Parser/Cleaner/Research Lab compute yetersizliğinde `compute_limited`, input yokluğunda `input_starved` runtime reason üretir.
 - Power/heat, contracts, save/load ve UI feedback bu adımda uygulanmadı; sıradaki milestone/backlog item'larına bırakıldı.
+
+---
+
+## 2026-06-11 — M1 graph canvas Blueprint Control Room hedefini izleyecek
+
+Status: Accepted
+
+Decision:
+
+M1-007 graph canvas UI, approved Figma direction olan Blueprint Control Room base + restrained neon flow + polished command panel dilini takip edecek. İlk UI slice yalnızca canvas, node, port ve edge interaction bileşenlerini içerir.
+
+Context:
+
+UI çalışması M1-007'de başladı. `CODEX_START_HERE.md` required visual reading listesindeki dokümanlar ve Figma production review M1 için `02_EmptyMainCanvas`, `03_FirstNodePlaced`, `04_FirstConnectionPreview`, `05_FirstWorkingPipeline`, `06_FirstBottleneck`, `07_NodeInspectorDetail` frame'lerini referans gösteriyor.
+
+Consequences:
+
+- Theme token renkleri CSS değişkenleri olarak uygulandı.
+- `src/ui/canvas` bileşenleri simulation logic içermez; graph state action/validation fonksiyonlarını çağırır.
+- Node drag ve port drag bağlantı etkileşimi browser smoke test ile doğrulandı.
+- Resource bar, node library, inspector, save/load ve bottom strip M1-008/M1-009 kapsamına bırakıldı.

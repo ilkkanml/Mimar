@@ -210,7 +210,7 @@ Status: Done
 
 Milestone: M1  
 Priority: P0  
-Status: Todo
+Status: Done
 
 ### Tasks
 
@@ -228,6 +228,14 @@ Status: Todo
 - Node sürüklenebilir.
 - Porttan porta bağlantı kurulabilir.
 - Edge çizgisi görünür.
+
+### Completion notes
+
+- Basic graph canvas UI added under `src/ui/canvas`.
+- Implemented `GraphCanvas`, `NodeView`, `EdgeView`, and `PortView`.
+- Nodes can be dragged; edge paths update from node positions.
+- Output ports can be dragged to compatible input ports to create validated edges.
+- Browser smoke test verified visible nodes, edge creation, and node dragging at `http://127.0.0.1:5173/`.
 
 ---
 
