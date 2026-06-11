@@ -1,0 +1,460 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schemaVersion": 0,
+  "description": "Initial data-driven node catalog for Mimar. Values are placeholder balance numbers for M1/M2 prototyping.",
+  "resourceTypes": [
+    "money",
+    "rawData",
+    "parsedData",
+    "cleanData",
+    "compute",
+    "research",
+    "power",
+    "heat",
+    "gpu",
+    "bandwidth",
+    "storage",
+    "reputation",
+    "trust",
+    "trace",
+    "byteCoin",
+    "hashLite"
+  ],
+  "categories": [
+    "data_source",
+    "processing",
+    "routing",
+    "output",
+    "infrastructure",
+    "research",
+    "crypto",
+    "cyber_ops",
+    "ai",
+    "security",
+    "automation",
+    "energy"
+  ],
+  "nodes": [
+    {
+      "id": "internet_feed",
+      "name": "Internet Feed",
+      "category": "data_source",
+      "description": "Produces raw data from public data streams. The first source node in the game.",
+      "baseCost": 0,
+      "costGrowth": 1.18,
+      "inputs": [],
+      "outputs": [
+        { "id": "raw_out", "direction": "output", "resourceType": "rawData", "throughput": 10 }
+      ],
+      "baseStats": {
+        "produces": { "rawData": 10 },
+        "consumes": {},
+        "computeProduced": 0,
+        "computeUsed": 0,
+        "powerUse": 1,
+        "heatOutput": 0.5,
+        "storageCapacity": 0
+      },
+      "upgradeScaling": {
+        "throughputMultiplierPerLevel": 1.16,
+        "powerUseMultiplierPerLevel": 1.04
+      },
+      "unlockRequirements": []
+    },
+    {
+      "id": "parser",
+      "name": "Parser",
+      "category": "processing",
+      "description": "Turns raw data into parsed data that can be cleaned, compressed, routed, or researched.",
+      "baseCost": 50,
+      "costGrowth": 1.22,
+      "inputs": [
+        { "id": "raw_in", "direction": "input", "resourceType": "rawData", "throughput": 8 }
+      ],
+      "outputs": [
+        { "id": "parsed_out", "direction": "output", "resourceType": "parsedData", "throughput": 8 }
+      ],
+      "baseStats": {
+        "produces": { "parsedData": 8 },
+        "consumes": { "rawData": 8, "compute": 2 },
+        "computeProduced": 0,
+        "computeUsed": 2,
+        "powerUse": 2,
+        "heatOutput": 1,
+        "storageCapacity": 20
+      },
+      "upgradeScaling": {
+        "throughputMultiplierPerLevel": 1.18,
+        "computeUseMultiplierPerLevel": 1.06,
+        "powerUseMultiplierPerLevel": 1.05
+      },
+      "unlockRequirements": []
+    },
+    {
+      "id": "cleaner",
+      "name": "Cleaner",
+      "category": "processing",
+      "description": "Cleans parsed data and reduces errors. Contract and AI systems rely on clean data.",
+      "baseCost": 100,
+      "costGrowth": 1.25,
+      "inputs": [
+        { "id": "parsed_in", "direction": "input", "resourceType": "parsedData", "throughput": 6 }
+      ],
+      "outputs": [
+        { "id": "clean_out", "direction": "output", "resourceType": "cleanData", "throughput": 5.5 }
+      ],
+      "baseStats": {
+        "produces": { "cleanData": 5.5 },
+        "consumes": { "parsedData": 6, "compute": 3 },
+        "computeProduced": 0,
+        "computeUsed": 3,
+        "powerUse": 3,
+        "heatOutput": 1.5,
+        "storageCapacity": 20,
+        "qualityBonus": 10,
+        "errorReduction": 0.08
+      },
+      "upgradeScaling": {
+        "throughputMultiplierPerLevel": 1.17,
+        "qualityBonusPerLevel": 3,
+        "computeUseMultiplierPerLevel": 1.05,
+        "powerUseMultiplierPerLevel": 1.05
+      },
+      "unlockRequirements": []
+    },
+    {
+      "id": "upload_gateway",
+      "name": "Upload Gateway",
+      "category": "output",
+      "description": "Sells clean data as upload revenue. The first money-making output node.",
+      "baseCost": 150,
+      "costGrowth": 1.24,
+      "inputs": [
+        { "id": "clean_in", "direction": "input", "resourceType": "cleanData", "throughput": 5 }
+      ],
+      "outputs": [
+        { "id": "money_out", "direction": "output", "resourceType": "money", "throughput": 50 }
+      ],
+      "baseStats": {
+        "produces": { "money": 50 },
+        "consumes": { "cleanData": 5 },
+        "computeProduced": 0,
+        "computeUsed": 0,
+        "powerUse": 2,
+        "heatOutput": 1,
+        "storageCapacity": 10,
+        "valuePerCleanData": 10
+      },
+      "upgradeScaling": {
+        "throughputMultiplierPerLevel": 1.2,
+        "valueMultiplierPerLevel": 1.08,
+        "powerUseMultiplierPerLevel": 1.04
+      },
+      "unlockRequirements": []
+    },
+    {
+      "id": "cpu_rack",
+      "name": "CPU Rack",
+      "category": "infrastructure",
+      "description": "Provides compute capacity for processing, research, cyber operations, and later cloud rental.",
+      "baseCost": 200,
+      "costGrowth": 1.28,
+      "inputs": [],
+      "outputs": [
+        { "id": "compute_out", "direction": "output", "resourceType": "compute", "throughput": 10 }
+      ],
+      "baseStats": {
+        "produces": { "compute": 10 },
+        "consumes": {},
+        "computeProduced": 10,
+        "computeUsed": 0,
+        "powerUse": 5,
+        "heatOutput": 4,
+        "storageCapacity": 0
+      },
+      "upgradeScaling": {
+        "computeProducedMultiplierPerLevel": 1.2,
+        "powerUseMultiplierPerLevel": 1.07,
+        "heatOutputMultiplierPerLevel": 1.08
+      },
+      "unlockRequirements": []
+    },
+    {
+      "id": "research_lab",
+      "name": "Research Lab",
+      "category": "research",
+      "description": "Consumes clean data and compute to produce research points for unlocking new technologies.",
+      "baseCost": 500,
+      "costGrowth": 1.3,
+      "inputs": [
+        { "id": "clean_in", "direction": "input", "resourceType": "cleanData", "throughput": 2 },
+        { "id": "compute_in", "direction": "input", "resourceType": "compute", "throughput": 1 }
+      ],
+      "outputs": [
+        { "id": "research_out", "direction": "output", "resourceType": "research", "throughput": 1 }
+      ],
+      "baseStats": {
+        "produces": { "research": 1 },
+        "consumes": { "cleanData": 2, "compute": 1 },
+        "computeProduced": 0,
+        "computeUsed": 1,
+        "powerUse": 3,
+        "heatOutput": 1,
+        "storageCapacity": 20
+      },
+      "upgradeScaling": {
+        "throughputMultiplierPerLevel": 1.16,
+        "researchMultiplierPerLevel": 1.12,
+        "powerUseMultiplierPerLevel": 1.05
+      },
+      "unlockRequirements": [
+        { "type": "moneyEarned", "amount": 1000 }
+      ]
+    },
+    {
+      "id": "router",
+      "name": "Router",
+      "category": "routing",
+      "description": "Splits compatible data streams toward multiple branches.",
+      "baseCost": 350,
+      "costGrowth": 1.22,
+      "inputs": [
+        { "id": "data_in", "direction": "input", "resourceType": "anyData", "throughput": 10 }
+      ],
+      "outputs": [
+        { "id": "data_out_a", "direction": "output", "resourceType": "anyData", "throughput": 5 },
+        { "id": "data_out_b", "direction": "output", "resourceType": "anyData", "throughput": 5 }
+      ],
+      "baseStats": {
+        "produces": {},
+        "consumes": { "compute": 0.5 },
+        "computeProduced": 0,
+        "computeUsed": 0.5,
+        "powerUse": 1,
+        "heatOutput": 0.5,
+        "storageCapacity": 10
+      },
+      "upgradeScaling": {
+        "throughputMultiplierPerLevel": 1.15
+      },
+      "unlockRequirements": [
+        { "type": "researchPurchased", "id": "routing_basics" }
+      ]
+    },
+    {
+      "id": "compressor",
+      "name": "Compressor",
+      "category": "processing",
+      "description": "Reduces bandwidth/storage pressure and increases upload value for some contracts.",
+      "baseCost": 650,
+      "costGrowth": 1.25,
+      "inputs": [
+        { "id": "clean_in", "direction": "input", "resourceType": "cleanData", "throughput": 4 }
+      ],
+      "outputs": [
+        { "id": "compressed_out", "direction": "output", "resourceType": "cleanData", "throughput": 3.8 }
+      ],
+      "baseStats": {
+        "produces": { "cleanData": 3.8 },
+        "consumes": { "cleanData": 4, "compute": 2 },
+        "computeProduced": 0,
+        "computeUsed": 2,
+        "powerUse": 3,
+        "heatOutput": 1.5,
+        "storageCapacity": 15,
+        "bandwidthReduction": 0.25
+      },
+      "upgradeScaling": {
+        "throughputMultiplierPerLevel": 1.16,
+        "bandwidthReductionPerLevel": 0.03
+      },
+      "unlockRequirements": [
+        { "type": "researchPurchased", "id": "compression" }
+      ]
+    },
+    {
+      "id": "gpu_cluster",
+      "name": "GPU Cluster",
+      "category": "infrastructure",
+      "description": "Provides GPU capacity for crypto mining, AI training, model inference, and GPU cloud rental.",
+      "baseCost": 2500,
+      "costGrowth": 1.32,
+      "inputs": [],
+      "outputs": [
+        { "id": "gpu_out", "direction": "output", "resourceType": "gpu", "throughput": 10 }
+      ],
+      "baseStats": {
+        "produces": { "gpu": 10 },
+        "consumes": {},
+        "computeProduced": 0,
+        "computeUsed": 0,
+        "gpuProduced": 10,
+        "powerUse": 12,
+        "heatOutput": 10,
+        "storageCapacity": 0
+      },
+      "upgradeScaling": {
+        "gpuProducedMultiplierPerLevel": 1.18,
+        "powerUseMultiplierPerLevel": 1.08,
+        "heatOutputMultiplierPerLevel": 1.1
+      },
+      "unlockRequirements": [
+        { "type": "researchPurchased", "id": "gpu_compute" }
+      ]
+    },
+    {
+      "id": "miner_node",
+      "name": "Miner Node",
+      "category": "crypto",
+      "description": "Converts allocated GPU capacity into fictional coins. Mining creates power and heat pressure.",
+      "baseCost": 1500,
+      "costGrowth": 1.28,
+      "inputs": [
+        { "id": "gpu_in", "direction": "input", "resourceType": "gpu", "throughput": 5 }
+      ],
+      "outputs": [
+        { "id": "coin_out", "direction": "output", "resourceType": "byteCoin", "throughput": 0.2 }
+      ],
+      "baseStats": {
+        "produces": { "byteCoin": 0.2 },
+        "consumes": { "gpu": 5 },
+        "computeProduced": 0,
+        "computeUsed": 0,
+        "powerUse": 8,
+        "heatOutput": 8,
+        "storageCapacity": 0,
+        "minerEfficiency": 1
+      },
+      "upgradeScaling": {
+        "minerEfficiencyMultiplierPerLevel": 1.15,
+        "powerUseMultiplierPerLevel": 1.05,
+        "heatOutputMultiplierPerLevel": 1.07
+      },
+      "unlockRequirements": [
+        { "type": "researchPurchased", "id": "crypto_mining" }
+      ]
+    },
+    {
+      "id": "wallet",
+      "name": "Wallet",
+      "category": "crypto",
+      "description": "Stores fictional coins before they are sold. Full wallets block mining output.",
+      "baseCost": 800,
+      "costGrowth": 1.2,
+      "inputs": [
+        { "id": "coin_in", "direction": "input", "resourceType": "anyCoin", "throughput": 10 }
+      ],
+      "outputs": [
+        { "id": "coin_out", "direction": "output", "resourceType": "anyCoin", "throughput": 10 }
+      ],
+      "baseStats": {
+        "produces": {},
+        "consumes": {},
+        "computeProduced": 0,
+        "computeUsed": 0,
+        "powerUse": 1,
+        "heatOutput": 0.2,
+        "storageCapacity": 100
+      },
+      "upgradeScaling": {
+        "storageCapacityMultiplierPerLevel": 1.5
+      },
+      "unlockRequirements": [
+        { "type": "researchPurchased", "id": "crypto_mining" }
+      ]
+    },
+    {
+      "id": "crypto_seller",
+      "name": "Crypto Seller",
+      "category": "crypto",
+      "description": "Sells fictional coins at current market price and converts them to money.",
+      "baseCost": 1200,
+      "costGrowth": 1.22,
+      "inputs": [
+        { "id": "coin_in", "direction": "input", "resourceType": "anyCoin", "throughput": 1 }
+      ],
+      "outputs": [
+        { "id": "money_out", "direction": "output", "resourceType": "money", "throughput": 100 }
+      ],
+      "baseStats": {
+        "produces": { "money": 100 },
+        "consumes": { "byteCoin": 1 },
+        "computeProduced": 0,
+        "computeUsed": 0.5,
+        "powerUse": 1,
+        "heatOutput": 0.2,
+        "storageCapacity": 0
+      },
+      "upgradeScaling": {
+        "throughputMultiplierPerLevel": 1.2,
+        "feeReductionPerLevel": 0.01
+      },
+      "unlockRequirements": [
+        { "type": "researchPurchased", "id": "crypto_mining" }
+      ]
+    },
+    {
+      "id": "hacker_node",
+      "name": "Hacker Node",
+      "category": "cyber_ops",
+      "description": "Produces abstract cyber operation power for legal bug bounty simulations. Does not represent real hacking steps.",
+      "baseCost": 3000,
+      "costGrowth": 1.3,
+      "inputs": [
+        { "id": "compute_in", "direction": "input", "resourceType": "compute", "throughput": 4 }
+      ],
+      "outputs": [
+        { "id": "payload_power_out", "direction": "output", "resourceType": "cyberPower", "throughput": 5 }
+      ],
+      "baseStats": {
+        "produces": { "cyberPower": 5 },
+        "consumes": { "compute": 4 },
+        "computeProduced": 0,
+        "computeUsed": 4,
+        "powerUse": 4,
+        "heatOutput": 2,
+        "storageCapacity": 0
+      },
+      "upgradeScaling": {
+        "throughputMultiplierPerLevel": 1.18,
+        "computeUseMultiplierPerLevel": 1.06
+      },
+      "unlockRequirements": [
+        { "type": "researchPurchased", "id": "legal_cyber_ops" }
+      ]
+    },
+    {
+      "id": "bug_bounty_target",
+      "name": "Bug Bounty Target",
+      "category": "cyber_ops",
+      "description": "A fictional legal security simulation target. Rewards money, trust, and White Hat XP based on abstract success chance.",
+      "baseCost": 0,
+      "costGrowth": 1,
+      "inputs": [
+        { "id": "cyber_power_in", "direction": "input", "resourceType": "cyberPower", "throughput": 5 }
+      ],
+      "outputs": [
+        { "id": "money_out", "direction": "output", "resourceType": "money", "throughput": 250 },
+        { "id": "trust_out", "direction": "output", "resourceType": "trust", "throughput": 0.1 }
+      ],
+      "baseStats": {
+        "produces": { "money": 250, "trust": 0.1 },
+        "consumes": { "cyberPower": 5 },
+        "computeProduced": 0,
+        "computeUsed": 0,
+        "powerUse": 1,
+        "heatOutput": 0.2,
+        "storageCapacity": 0,
+        "targetDefense": 10,
+        "traceRisk": 0.02
+      },
+      "upgradeScaling": {
+        "rewardMultiplierPerLevel": 1.12,
+        "targetDefenseMultiplierPerLevel": 1.1
+      },
+      "unlockRequirements": [
+        { "type": "researchPurchased", "id": "legal_cyber_ops" }
+      ]
+    }
+  ]
+}
