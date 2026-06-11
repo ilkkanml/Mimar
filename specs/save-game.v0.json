@@ -1,0 +1,271 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ilkkanml/Mimar/specs/save-game.v0.json",
+  "title": "Mimar Save Game Schema v0",
+  "description": "Initial save-game schema for Mimar. This schema is intentionally permissive enough for early prototypes while enforcing schemaVersion and core graph/resource structure.",
+  "type": "object",
+  "required": ["schemaVersion", "savedAt", "gameState"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 0
+    },
+    "savedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "gameVersion": {
+      "type": "string",
+      "description": "Optional app/game version string. Example: 0.1.0-dev."
+    },
+    "gameState": {
+      "type": "object",
+      "required": ["schemaVersion", "meta", "graph", "resources", "research", "contracts", "sideOps", "settings"],
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "const": 0
+        },
+        "meta": {
+          "type": "object",
+          "required": ["createdAt", "lastTickAt", "totalPlayTimeSeconds"],
+          "properties": {
+            "createdAt": { "type": "string", "format": "date-time" },
+            "lastTickAt": { "type": "string", "format": "date-time" },
+            "totalPlayTimeSeconds": { "type": "number", "minimum": 0 },
+            "companyName": { "type": "string", "default": "Mimar Labs" },
+            "activeChapterId": { "type": "string" },
+            "seed": { "type": "integer" }
+          },
+          "additionalProperties": true
+        },
+        "graph": {
+          "type": "object",
+          "required": ["nodes", "edges"],
+          "properties": {
+            "nodes": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/nodeInstance"
+              }
+            },
+            "edges": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/edgeInstance"
+              }
+            },
+            "selectedNodeIds": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": []
+            },
+            "selectedEdgeIds": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": []
+            },
+            "camera": {
+              "type": "object",
+              "properties": {
+                "x": { "type": "number" },
+                "y": { "type": "number" },
+                "zoom": { "type": "number", "exclusiveMinimum": 0 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": true
+        },
+        "resources": {
+          "type": "object",
+          "required": ["balances", "rates", "capacities", "usage"],
+          "properties": {
+            "balances": { "$ref": "#/$defs/resourceMap" },
+            "rates": { "$ref": "#/$defs/resourceMap" },
+            "capacities": { "$ref": "#/$defs/resourceMap" },
+            "usage": { "$ref": "#/$defs/resourceMap" }
+          },
+          "additionalProperties": true
+        },
+        "research": {
+          "type": "object",
+          "required": ["purchasedResearchIds", "availableResearchIds"],
+          "properties": {
+            "purchasedResearchIds": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": []
+            },
+            "availableResearchIds": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": []
+            },
+            "queuedResearchId": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "contracts": {
+          "type": "object",
+          "required": ["active", "completedIds", "failedIds"],
+          "properties": {
+            "active": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/activeContract" },
+              "default": []
+            },
+            "completedIds": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": []
+            },
+            "failedIds": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": []
+            }
+          },
+          "additionalProperties": true
+        },
+        "sideOps": {
+          "type": "object",
+          "required": ["crypto", "cyber", "cloudRental", "aiApi"],
+          "properties": {
+            "crypto": {
+              "type": "object",
+              "properties": {
+                "wallets": {
+                  "type": "object",
+                  "additionalProperties": { "type": "number" }
+                },
+                "markets": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "price": { "type": "number" },
+                      "trend": { "type": "integer", "minimum": -1, "maximum": 1 },
+                      "volatility": { "type": "number", "minimum": 0 }
+                    },
+                    "additionalProperties": true
+                  }
+                }
+              },
+              "additionalProperties": true
+            },
+            "cyber": {
+              "type": "object",
+              "properties": {
+                "whiteHatXp": { "type": "number", "minimum": 0 },
+                "blackHatRep": { "type": "number" },
+                "traceRisk": { "type": "number", "minimum": 0 }
+              },
+              "additionalProperties": true
+            },
+            "cloudRental": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "aiApi": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "autosaveEnabled": { "type": "boolean", "default": true },
+            "reducedMotion": { "type": "boolean", "default": false },
+            "uiScale": { "type": "number", "minimum": 0.5, "maximum": 2.0, "default": 1 }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "resourceMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "vec2": {
+      "type": "object",
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "nodeInstance": {
+      "type": "object",
+      "required": ["id", "definitionId", "position", "level", "enabled", "inputBuffers", "outputBuffers", "status"],
+      "properties": {
+        "id": { "type": "string" },
+        "definitionId": { "type": "string" },
+        "position": { "$ref": "#/$defs/vec2" },
+        "level": { "type": "integer", "minimum": 1 },
+        "enabled": { "type": "boolean" },
+        "inputBuffers": { "$ref": "#/$defs/resourceMap" },
+        "outputBuffers": { "$ref": "#/$defs/resourceMap" },
+        "status": {
+          "type": "string",
+          "enum": [
+            "running",
+            "input_starved",
+            "output_blocked",
+            "compute_limited",
+            "power_limited",
+            "heat_throttled",
+            "storage_full",
+            "network_limited",
+            "contract_mismatch",
+            "security_locked",
+            "idle"
+          ]
+        },
+        "runtime": {
+          "type": "object",
+          "description": "Runtime stats may be omitted or recomputed on load.",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "edgeInstance": {
+      "type": "object",
+      "required": ["id", "fromNodeId", "fromPortId", "toNodeId", "toPortId", "throughputLimit", "resourceType"],
+      "properties": {
+        "id": { "type": "string" },
+        "fromNodeId": { "type": "string" },
+        "fromPortId": { "type": "string" },
+        "toNodeId": { "type": "string" },
+        "toPortId": { "type": "string" },
+        "throughputLimit": { "type": "number", "minimum": 0 },
+        "resourceType": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "activeContract": {
+      "type": "object",
+      "required": ["definitionId", "acceptedAt", "progress", "status"],
+      "properties": {
+        "definitionId": { "type": "string" },
+        "acceptedAt": { "type": "string", "format": "date-time" },
+        "progress": { "$ref": "#/$defs/resourceMap" },
+        "status": {
+          "type": "string",
+          "enum": ["active", "completed", "failed"]
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
