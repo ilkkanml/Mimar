@@ -6,15 +6,25 @@ import type {
 
 type InspectorPanelProps = {
   model: InspectorModel;
+  onBuyMax: (nodeId: string) => void;
+  onUpgrade: (nodeId: string) => void;
 };
 
-export function InspectorPanel({ model }: InspectorPanelProps) {
+export function InspectorPanel({
+  model,
+  onBuyMax,
+  onUpgrade
+}: InspectorPanelProps) {
   return (
     <aside className="inspector-panel" aria-label="Inspector">
       {model.kind === "empty" ? (
         <EmptyInspector model={model} />
       ) : (
-        <NodeInspector model={model} />
+        <NodeInspector
+          model={model}
+          onBuyMax={onBuyMax}
+          onUpgrade={onUpgrade}
+        />
       )}
     </aside>
   );
@@ -34,7 +44,15 @@ function EmptyInspector({
   );
 }
 
-function NodeInspector({ model }: { model: NodeInspectorModel }) {
+function NodeInspector({
+  model,
+  onBuyMax,
+  onUpgrade
+}: {
+  model: NodeInspectorModel;
+  onBuyMax: (nodeId: string) => void;
+  onUpgrade: (nodeId: string) => void;
+}) {
   const statusTone = model.bottleneck === undefined ? "normal" : "warning";
 
   return (
@@ -102,6 +120,57 @@ function NodeInspector({ model }: { model: NodeInspectorModel }) {
             <strong>{model.bottleneck.reasonLabel}</strong>
             <p>{model.bottleneck.summary}</p>
           </div>
+        )}
+      </section>
+
+      <section className="inspector-section inspector-section--upgrade">
+        <div className="inspector-section__title">Upgrade</div>
+        {model.upgrade === undefined ? (
+          <p className="inspector-section__body">No upgrade path configured.</p>
+        ) : (
+          <>
+            <div className="upgrade-preview">
+              <div className="upgrade-preview__row">
+                <span>Next</span>
+                <strong>
+                  Lv{model.upgrade.nextLevel} / $
+                  {formatNumber(model.upgrade.nextCost)}
+                </strong>
+              </div>
+              <div className="upgrade-preview__row">
+                <span>Effect</span>
+                <strong>{model.upgrade.effectLabel}</strong>
+              </div>
+              <div className="upgrade-preview__row">
+                <span>Buy Max</span>
+                <strong>
+                  {model.upgrade.buyMaxCount > 0
+                    ? `+${model.upgrade.buyMaxCount} to Lv${model.upgrade.buyMaxLevel} / $${formatNumber(
+                        model.upgrade.buyMaxCost
+                      )}`
+                    : "Not affordable"}
+                </strong>
+              </div>
+            </div>
+            <div className="upgrade-actions">
+              <button
+                className="command-button command-button--primary"
+                disabled={!model.upgrade.canUpgrade}
+                onClick={() => onUpgrade(model.nodeId)}
+                type="button"
+              >
+                Upgrade
+              </button>
+              <button
+                className="command-button"
+                disabled={!model.upgrade.canBuyMax}
+                onClick={() => onBuyMax(model.nodeId)}
+                type="button"
+              >
+                Buy Max
+              </button>
+            </div>
+          </>
         )}
       </section>
 

@@ -169,6 +169,30 @@ describe("basic simulation tick", () => {
       stateAfterTick.graph.nodes[graph.parserId]?.runtime.inputRate.compute
     ).toBeCloseTo(1.6);
   });
+
+  it("applies upgraded infrastructure stats to compute, power, and heat", () => {
+    const graph = createPipelineGraph({ includeCpuRack: true });
+
+    if (graph.cpuRackId === undefined) {
+      throw new Error("CPU rack is required for this test.");
+    }
+
+    const upgradedState = withNodeLevel(graph.state, graph.cpuRackId, 2);
+    const stateAfterTick = tickGameState(upgradedState, nodeDefinitionsById);
+
+    expect(stateAfterTick.resources.capacities.compute).toBeCloseTo(12);
+    expect(stateAfterTick.resources.usage.power).toBeCloseTo(13.35);
+    expect(stateAfterTick.resources.usage.heat).toBeCloseTo(8.32);
+  });
+
+  it("applies upgraded upload output efficiency during simulation", () => {
+    const graph = createPipelineGraph({ includeCpuRack: true });
+    const upgradedState = withNodeLevel(graph.state, graph.uploadGatewayId, 2);
+    const stateAfterTicks = tickMany(upgradedState, 140);
+
+    expect(stateAfterTicks.graph.nodes[graph.uploadGatewayId]?.level).toBe(2);
+    expect(stateAfterTicks.resources.rates.money).toBeGreaterThan(50);
+  });
 });
 
 const powerHungryDefinition = {
@@ -224,6 +248,32 @@ function withUnlockedResearch(
       availableResearchIds: [],
       unlockedResearchIds,
       spentResearchPoints: 0
+    }
+  };
+}
+
+function withNodeLevel(
+  state: GameState,
+  nodeId: NodeId,
+  level: number
+): GameState {
+  const node = state.graph.nodes[nodeId];
+
+  if (node === undefined) {
+    throw new Error(`Missing node ${nodeId}.`);
+  }
+
+  return {
+    ...state,
+    graph: {
+      ...state.graph,
+      nodes: {
+        ...state.graph.nodes,
+        [nodeId]: {
+          ...node,
+          level
+        }
+      }
     }
   };
 }

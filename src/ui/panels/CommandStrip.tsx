@@ -9,18 +9,26 @@ export type SaveStatusModel = {
 
 type CommandStripProps = {
   bottleneck?: BottleneckSummaryModel | undefined;
+  canRedo: boolean;
+  canUndo: boolean;
   saveStatus: SaveStatusModel;
   onLoad: () => void;
   onNewGame: () => void;
+  onRedo: () => void;
   onSave: () => void;
+  onUndo: () => void;
 };
 
 export function CommandStrip({
   bottleneck,
+  canRedo,
+  canUndo,
   saveStatus,
   onLoad,
   onNewGame,
-  onSave
+  onRedo,
+  onSave,
+  onUndo
 }: CommandStripProps) {
   return (
     <footer className="command-strip" aria-label="Command strip">
@@ -43,6 +51,22 @@ export function CommandStrip({
         <span>{saveStatus.text}</span>
       </div>
       <div className="command-strip__actions">
+        <button
+          className="command-button command-button--ghost"
+          disabled={!canUndo}
+          onClick={onUndo}
+          type="button"
+        >
+          Undo
+        </button>
+        <button
+          className="command-button command-button--ghost"
+          disabled={!canRedo}
+          onClick={onRedo}
+          type="button"
+        >
+          Redo
+        </button>
         <button className="command-button command-button--primary" onClick={onSave} type="button">
           Save
         </button>

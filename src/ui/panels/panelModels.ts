@@ -16,6 +16,14 @@ import type {
   ResourceId,
   ResourceMap
 } from "../../game/state/types";
+import { researchDefinitionsById } from "../../game/data/research";
+import { applyResearchEffectsToNodeDefinitions } from "../../game/simulation/researchEffects";
+import {
+  applyNodeUpgradeScaling,
+  calculateMaxAffordableUpgrade,
+  calculateNextUpgradeCost,
+  hasNodeUpgradeScaling
+} from "../../game/simulation/upgrades";
 
 export type ResourceMetricModel = {
   resourceId: ResourceId;
@@ -77,6 +85,19 @@ export type InspectorLoadModel = {
   heatOutput: number;
 };
 
+export type UpgradePreviewModel = {
+  currentLevel: number;
+  nextLevel: number;
+  nextCost: number;
+  currentMoney: number;
+  canUpgrade: boolean;
+  buyMaxLevel: number;
+  buyMaxCost: number;
+  buyMaxCount: number;
+  canBuyMax: boolean;
+  effectLabel: string;
+};
+
 export type NodeInspectorModel = {
   kind: "node";
   nodeId: NodeId;
@@ -91,6 +112,7 @@ export type NodeInspectorModel = {
   throughputPercent: number;
   compute?: InspectorComputeModel;
   load?: InspectorLoadModel;
+  upgrade?: UpgradePreviewModel;
   bottleneck?: BottleneckSummaryModel;
   recommendedAction?: string;
 };
@@ -206,11 +228,16 @@ export function buildInspectorModel(
     return buildEmptyInspectorModel();
   }
 
-  const definition = nodeDefinitionsById[node.definitionId];
-  if (definition === undefined) {
+  const baseDefinition = nodeDefinitionsById[node.definitionId];
+  if (baseDefinition === undefined) {
     return buildEmptyInspectorModel();
   }
 
+  const definition = buildEffectiveNodeDefinitionForInspector(
+    state,
+    node,
+    nodeDefinitionsById
+  );
   const bottleneck =
     node.runtime.bottleneckReason === undefined
       ? undefined
@@ -234,6 +261,7 @@ export function buildInspectorModel(
   };
   const compute = buildInspectorComputeModel(node, definition);
   const load = buildInspectorLoadModel(definition);
+  const upgrade = buildUpgradePreviewModel(state, node, baseDefinition);
   const recommendedAction =
     bottleneck?.recommendedAction ?? buildDefaultRecommendedAction(node);
 
@@ -245,6 +273,10 @@ export function buildInspectorModel(
     model.load = load;
   }
 
+  if (upgrade !== undefined) {
+    model.upgrade = upgrade;
+  }
+
   if (bottleneck !== undefined) {
     model.bottleneck = bottleneck;
   }
@@ -254,6 +286,29 @@ export function buildInspectorModel(
   }
 
   return model;
+}
+
+function buildEffectiveNodeDefinitionForInspector(
+  state: GameState,
+  node: NodeInstance,
+  nodeDefinitionsById: Readonly<Record<NodeDefinitionId, NodeDefinition>>
+): NodeDefinition {
+  const baseDefinition = nodeDefinitionsById[node.definitionId];
+
+  if (baseDefinition === undefined) {
+    throw new Error(`Missing node definition for ${node.definitionId}.`);
+  }
+
+  const researchModifiedDefinitions = applyResearchEffectsToNodeDefinitions(
+    nodeDefinitionsById,
+    state.research,
+    researchDefinitionsById
+  );
+  const definition = researchModifiedDefinitions[node.definitionId];
+
+  return definition === undefined
+    ? baseDefinition
+    : applyNodeUpgradeScaling(definition, node.level);
 }
 
 export function buildContractPanelModel(
@@ -510,10 +565,100 @@ function buildInspectorLoadModel(
   };
 }
 
+function buildUpgradePreviewModel(
+  state: GameState,
+  node: NodeInstance,
+  definition: NodeDefinition
+): UpgradePreviewModel | undefined {
+  if (!hasNodeUpgradeScaling(definition)) {
+    return undefined;
+  }
+
+  const currentLevel = node.level;
+  const nextCost = calculateNextUpgradeCost(definition, currentLevel);
+  const maxPreview = calculateMaxAffordableUpgrade(
+    definition,
+    currentLevel,
+    state.resources.balances.money
+  );
+
+  return {
+    currentLevel,
+    nextLevel: currentLevel + 1,
+    nextCost,
+    currentMoney: state.resources.balances.money,
+    canUpgrade: state.resources.balances.money >= nextCost,
+    buyMaxLevel: maxPreview.targetLevel,
+    buyMaxCost: maxPreview.totalCost,
+    buyMaxCount: maxPreview.upgradeCount,
+    canBuyMax: maxPreview.upgradeCount > 0,
+    effectLabel: formatUpgradeEffect(definition)
+  };
+}
+
 function buildDefaultRecommendedAction(node: NodeInstance): string | undefined {
   return node.status === "running"
     ? "Keep this branch balanced and watch the next bottleneck."
     : undefined;
+}
+
+function formatUpgradeEffect(definition: NodeDefinition): string {
+  const scaling = definition.upgradeScaling;
+  const parts: string[] = [];
+
+  if (scaling.throughputMultiplierPerLevel !== undefined) {
+    parts.push(
+      `${formatMultiplierIncrease(
+        scaling.throughputMultiplierPerLevel
+      )} throughput`
+    );
+  }
+
+  if (scaling.computeProducedMultiplierPerLevel !== undefined) {
+    parts.push(
+      `${formatMultiplierIncrease(
+        scaling.computeProducedMultiplierPerLevel
+      )} compute capacity`
+    );
+  }
+
+  if (scaling.computeUseMultiplierPerLevel !== undefined) {
+    parts.push(
+      `${formatMultiplierIncrease(
+        scaling.computeUseMultiplierPerLevel
+      )} compute use`
+    );
+  }
+
+  if (scaling.powerUseMultiplierPerLevel !== undefined) {
+    parts.push(
+      `${formatMultiplierIncrease(scaling.powerUseMultiplierPerLevel)} power use`
+    );
+  }
+
+  if (scaling.heatOutputMultiplierPerLevel !== undefined) {
+    parts.push(
+      `${formatMultiplierIncrease(
+        scaling.heatOutputMultiplierPerLevel
+      )} heat output`
+    );
+  }
+
+  if (scaling.valueMultiplierPerLevel !== undefined) {
+    parts.push(
+      `${formatMultiplierIncrease(scaling.valueMultiplierPerLevel)} upload value`
+    );
+  }
+
+  if (scaling.researchMultiplierPerLevel !== undefined) {
+    parts.push(
+      `${formatMultiplierIncrease(
+        scaling.researchMultiplierPerLevel
+      )} research output`
+    );
+  }
+
+  return parts.length === 0 ? "No configured upgrade effect." : parts.join(", ");
 }
 
 export function formatResourceLabel(resourceId: ResourceId): string {

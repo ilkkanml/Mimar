@@ -437,21 +437,76 @@ Status: Done
 ## M2-004 — Buy Max and upgrade scaling
 
 Priority: P1  
-Status: Todo
+Status: Done
 
-- Upgrade cost formula.
-- Buy 1/10/100/Max.
-- Preview next effects.
+### Tasks
+
+- Add deterministic node upgrade cost formula.
+- Add level-based upgrade scaling for existing throughput, compute, power, heat, and upload/research output surfaces.
+- Add Upgrade and Buy Max actions for the selected node.
+- Keep Buy Max bounded and deterministic so it stops when money is insufficient.
+- Add minimal Inspector controls for selected node level, next cost, effect preview, Upgrade, and Buy Max.
+- Persist node levels through save/load v0 and recompute derived effects after load.
+
+### Acceptance
+
+- Single upgrade deducts the correct money and increments the selected node level once.
+- Insufficient money leaves state unchanged and reports a safe reason.
+- Buy Max buys the highest affordable level without overspending or looping forever.
+- Simulation uses upgraded node values for throughput, money/research output, compute capacity/usage, power usage, heat generation, and bottleneck calculations.
+- Save/load preserves node levels while runtime fields still reset and recompute.
+- Inspector shows level, next cost, effect preview, Upgrade, and Buy Max using the existing visual direction.
+- No Side Operations, crypto/cyber, Blueprint Library, Staging Room, Market, Campaign, monetization, full rebalance, prestige/reset, new visual direction, or new node placement palette is added.
+
+### Completion notes
+
+- M2-004 completed with `upgradeCost(level) = ceil(max(1, baseCost) * costGrowth ^ level)` so zero-cost starter nodes still have finite upgrade costs.
+- Upgrade scaling is applied after research modifiers during simulation and is recomputed from persisted node levels after load.
+- Buy Max uses a bounded deterministic calculation and returns the final level, total cost, and purchased count.
+- Inspector now exposes only two M2-004 actions: Upgrade and Buy Max.
 
 ## M2-005 — Undo/redo v0
 
 Priority: P1  
+Status: Done
+
+### Tasks
+
+- Add a deterministic undo/redo history model with `past`, `future`, `current`, and bounded `maxDepth`.
+- Track important player actions without tracking simulation ticks every frame.
+- Cover node move, edge creation, edge deletion through the existing action, single upgrade, Buy Max upgrade, research unlock, contract claim, and New System reset.
+- Add `canUndo`, `canRedo`, `undo`, `redo`, `pushHistory`, and current-state replacement helpers.
+- Keep undo/redo stacks out of save payloads for v0.
+- Add minimal Undo and Redo buttons to the existing bottom command strip.
+
+### Acceptance
+
+- Undo restores the previous game state for tracked actions.
+- Redo restores the undone state.
+- A new user action after undo clears the redo future.
+- Max history depth is enforced deterministically.
+- Simulation ticks update the current state without adding history entries.
+- History stack snapshots do not store runtime-only tick rates/status fields.
+- Save/load behavior remains stable and does not persist undo/redo stacks.
+- No full timeline UI, branching history, cloud sync, multiplayer/collaboration, or new visual direction is added.
+
+### Completion notes
+
+- M2-005 completed with `src/game/state/history.ts`, a bounded snapshot history wrapper that stores runtime-normalized past/future states while allowing the live current state to continue ticking.
+- App-level simulation ticks now replace `history.current` without pushing history entries.
+- Graph drag commits one history entry on pointer release; edge creation, node upgrade, Buy Max, research unlock, contract claim, and New System reset push one entry only on successful state changes.
+- Bottom command strip now exposes minimal Undo and Redo buttons with disabled states.
+- Save schema version remains `0`; undo/redo history is intentionally not part of persisted save data.
+
+## M2-006 — Node tooltip metrics v0
+
+Priority: P1
 Status: Todo
 
-- Command history.
-- Move node undo.
-- Connect/disconnect undo.
-- Place/delete node undo.
+- Add compact node/port tooltip metric readouts using existing runtime and panel model data.
+- Keep tooltips within the existing visual direction and theme tokens.
+- Include enough metrics to explain throughput, port resource type, and current bottleneck reason without opening a new panel.
+- Do not add a new visual direction, expanded deck, market, blueprint, staging, side operation, or campaign system.
 
 ---
 

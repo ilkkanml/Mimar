@@ -219,7 +219,11 @@
         "id": { "type": "string" },
         "definitionId": { "type": "string" },
         "position": { "$ref": "#/$defs/vec2" },
-        "level": { "type": "integer", "minimum": 1 },
+        "level": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Persisted node upgrade level. Runtime upgrade effects are recomputed from node definition scaling after load."
+        },
         "enabled": { "type": "boolean" },
         "inputBuffers": { "$ref": "#/$defs/resourceMap" },
         "outputBuffers": { "$ref": "#/$defs/resourceMap" },

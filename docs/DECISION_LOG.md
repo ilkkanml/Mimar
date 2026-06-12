@@ -405,3 +405,47 @@ Consequences:
 - The first seeded research definitions are Parser Optimization, Cooling Discipline, Cleaner Efficiency, Power Routing, and Upload Compression.
 - Simulation applies unlocked effects to effective node definitions or facility-level power/heat capacity before each tick.
 - The UI is limited to a compact right-rail Research panel/cards under the existing visual language; no full deck, queue, tree canvas, marketplace, or future progression surface is introduced.
+
+---
+
+## 2026-06-12 - M2 upgrades use persisted levels and derived scaling
+
+Status: Accepted
+
+Decision:
+
+M2-004 node upgrades use the existing persisted `NodeInstance.level` plus deterministic cost and scaling helpers. Upgrade cost is `ceil(max(1, baseCost) * costGrowth ^ level)`, which keeps zero-cost starter nodes finite for Buy Max. Upgrade effects are derived from `NodeDefinition.upgradeScaling`, applied after research modifiers, and recomputed during simulation and Inspector view-model building.
+
+Context:
+
+The user scoped M2-004 to Buy Max and upgrade scaling only. The slice needed Upgrade and Buy Max actions, simulation integration, Inspector controls, save/load persistence, and tests without adding Side Operations, crypto/cyber systems, market surfaces, blueprint/staging systems, campaign, monetization, full rebalance, prestige/reset, a new visual direction, or a node placement palette.
+
+Consequences:
+
+- `schemaVersion: 0` remains unchanged; node `level` was already part of the v0 node instance schema and now explicitly represents persisted upgrade level.
+- Buy Max is bounded and deterministic, stops when money is insufficient, and returns purchased count, final level, and total cost.
+- Simulation now uses level-scaled effective definitions for throughput, compute capacity/usage, power usage, heat generation, money/research output, and bottleneck calculations.
+- Inspector shows the selected node level, next cost, effect preview, Upgrade, and Buy Max using the existing panel/button style.
+- M2-005 Undo/redo remains the next backlog item and was not started.
+
+---
+
+## 2026-06-12 - M2 undo/redo uses bounded non-persisted snapshots
+
+Status: Accepted
+
+Decision:
+
+M2-005 undo/redo uses an app-level history wrapper with `past`, `current`, `future`, and bounded `maxDepth` instead of adding history stacks to persisted `GameState`. User actions push save-normalized snapshots into past/future, while the live current state continues to receive simulation ticks through replacement, not history pushes.
+
+Context:
+
+The user scoped M2-005 to simple deterministic undo/redo for important player actions only: node movement, edge creation/deletion where supported, node upgrades, Buy Max, research unlocks, contract claims, and safe New System reset handling. The same prompt explicitly excluded full timeline UI, branching history, cloud sync, multiplayer/collaboration, and saving huge undo stacks.
+
+Consequences:
+
+- `schemaVersion: 0` remains unchanged; undo/redo history is intentionally not persisted in save v0.
+- Simulation ticks do not spam history entries and runtime-only rates/status fields are stripped from stack snapshots.
+- New user actions after undo clear redo future deterministically.
+- The bottom command strip exposes minimal Undo and Redo controls with disabled states.
+- Full history timeline UI, branching histories, cloud sync, collaboration, and future systems remain out of scope.

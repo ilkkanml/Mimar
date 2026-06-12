@@ -107,6 +107,34 @@ describe("panel view models", () => {
     );
   });
 
+  it("builds selected node upgrade preview data", () => {
+    const graph = createInternetFeedParserGraph();
+    const selectedState = selectNode(withMoney(graph.state, 140), {
+      nodeId: graph.parserId
+    });
+
+    const model = buildInspectorModel(selectedState, nodeDefinitionsById);
+
+    expect(model.kind).toBe("node");
+
+    if (model.kind !== "node") {
+      return;
+    }
+
+    expect(model.upgrade).toEqual({
+      currentLevel: 1,
+      nextLevel: 2,
+      nextCost: 61,
+      currentMoney: 140,
+      canUpgrade: true,
+      buyMaxLevel: 3,
+      buyMaxCost: 136,
+      buyMaxCount: 2,
+      canBuyMax: true,
+      effectLabel: "+18% throughput, +6% compute use, +5% power use"
+    });
+  });
+
   it("builds a contract panel model with progress and claim state", () => {
     const state = {
       ...createInitialGameState("2026-06-11T00:00:00.000Z"),
@@ -235,4 +263,17 @@ function mustConnect(
   }
 
   return result.state;
+}
+
+function withMoney(state: GameState, money: number): GameState {
+  return {
+    ...state,
+    resources: {
+      ...state.resources,
+      balances: {
+        ...state.resources.balances,
+        money
+      }
+    }
+  };
 }

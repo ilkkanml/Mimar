@@ -13,7 +13,20 @@ import {
 } from "../game/state/actions";
 import { claimContractReward } from "../game/state/contractActions";
 import { unlockResearch } from "../game/state/researchActions";
+import {
+  upgradeSelectedNodeMax,
+  upgradeSelectedNodeOnce
+} from "../game/state/upgradeActions";
 import { createInitialGameState } from "../game/state/initialState";
+import {
+  canRedo,
+  canUndo,
+  createGameHistoryState,
+  pushHistory,
+  redo,
+  replaceHistoryCurrent,
+  undo
+} from "../game/state/history";
 import {
   SIMULATION_TICKS_PER_SECOND,
   tickGameState
@@ -37,18 +50,22 @@ import type { GameState } from "../game/state/types";
 import type { SaveStatusModel } from "../ui/panels/CommandStrip";
 
 export function App() {
-  const [gameState, setGameState] = useState<GameState>(() =>
-    createInitialM1UiState()
+  const [gameHistory, setGameHistory] = useState(() =>
+    createGameHistoryState(createInitialM1UiState())
   );
   const [saveStatus, setSaveStatus] = useState<SaveStatusModel>({
     text: "Not saved",
     tone: "idle"
   });
+  const gameState = gameHistory.current;
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      setGameState((currentState) =>
-        tickGameState(currentState, nodeDefinitionsById)
+      setGameHistory((currentHistory) =>
+        replaceHistoryCurrent(
+          currentHistory,
+          tickGameState(currentHistory.current, nodeDefinitionsById)
+        )
       );
     }, 1000 / SIMULATION_TICKS_PER_SECOND);
 
@@ -100,7 +117,11 @@ export function App() {
       return;
     }
 
-    setGameState(tickGameState(result.saveGame.gameState, nodeDefinitionsById));
+    setGameHistory(
+      createGameHistoryState(
+        tickGameState(result.saveGame.gameState, nodeDefinitionsById)
+      )
+    );
     setSaveStatus({
       text: `Loaded ${formatSaveTime(result.saveGame.savedAt)}`,
       tone: "success"
@@ -108,9 +129,27 @@ export function App() {
   }
 
   function handleNewGame() {
-    setGameState(createInitialM1UiState());
+    setGameHistory((currentHistory) =>
+      pushHistory(currentHistory, createInitialM1UiState())
+    );
     setSaveStatus({
       text: "New system started. Save slot kept.",
+      tone: "idle"
+    });
+  }
+
+  function handleUndo() {
+    setGameHistory((currentHistory) => undo(currentHistory));
+    setSaveStatus({
+      text: "Undo applied.",
+      tone: "idle"
+    });
+  }
+
+  function handleRedo() {
+    setGameHistory((currentHistory) => redo(currentHistory));
+    setSaveStatus({
+      text: "Redo applied.",
       tone: "idle"
     });
   }
@@ -133,7 +172,7 @@ export function App() {
       return;
     }
 
-    setGameState(result.state);
+    setGameHistory((currentHistory) => pushHistory(currentHistory, result.state));
     setSaveStatus({
       text: "Contract reward claimed.",
       tone: "success"
@@ -155,9 +194,47 @@ export function App() {
       return;
     }
 
-    setGameState(result.state);
+    setGameHistory((currentHistory) => pushHistory(currentHistory, result.state));
     setSaveStatus({
       text: "Research unlocked.",
+      tone: "success"
+    });
+  }
+
+  function handleUpgradeSelectedNode() {
+    const result = upgradeSelectedNodeOnce(gameState, nodeDefinitionsById);
+
+    if (!result.ok) {
+      setSaveStatus({
+        text: formatUpgradeError(result.reason),
+        tone: "warning"
+      });
+      return;
+    }
+
+    setGameHistory((currentHistory) => pushHistory(currentHistory, result.state));
+    setSaveStatus({
+      text: `Upgraded to Lv${result.level}.`,
+      tone: "success"
+    });
+  }
+
+  function handleBuyMaxSelectedNode() {
+    const result = upgradeSelectedNodeMax(gameState, nodeDefinitionsById);
+
+    if (!result.ok) {
+      setSaveStatus({
+        text: formatUpgradeError(result.reason),
+        tone: "warning"
+      });
+      return;
+    }
+
+    setGameHistory((currentHistory) => pushHistory(currentHistory, result.state));
+    setSaveStatus({
+      text: `Bought ${result.upgradesPurchased} upgrade${
+        result.upgradesPurchased === 1 ? "" : "s"
+      } to Lv${result.level}.`,
       tone: "success"
     });
   }
@@ -167,9 +244,37 @@ export function App() {
       <div className="app-shell">
         <ResourceBar model={resourceBarModel} />
         <div className="app-shell__workspace">
-          <GraphCanvas gameState={gameState} setGameState={setGameState} />
+          <GraphCanvas
+            gameState={gameState}
+            onCommitCurrentState={(previousState) =>
+              setGameHistory((currentHistory) =>
+                pushHistory(
+                  currentHistory,
+                  currentHistory.current,
+                  previousState
+                )
+              )
+            }
+            onCommitStateChange={(updater) =>
+              setGameHistory((currentHistory) =>
+                pushHistory(currentHistory, updater(currentHistory.current))
+              )
+            }
+            onTransientStateChange={(updater) =>
+              setGameHistory((currentHistory) =>
+                replaceHistoryCurrent(
+                  currentHistory,
+                  updater(currentHistory.current)
+                )
+              )
+            }
+          />
           <div className="app-shell__side-panel">
-            <InspectorPanel model={inspectorModel} />
+            <InspectorPanel
+              model={inspectorModel}
+              onBuyMax={handleBuyMaxSelectedNode}
+              onUpgrade={handleUpgradeSelectedNode}
+            />
             <div className="app-shell__secondary-panels">
               <ContractPanel
                 model={contractPanelModel}
@@ -184,9 +289,13 @@ export function App() {
         </div>
         <CommandStrip
           bottleneck={resourceBarModel.warning}
+          canRedo={canRedo(gameHistory)}
+          canUndo={canUndo(gameHistory)}
           onLoad={handleLoad}
           onNewGame={handleNewGame}
+          onRedo={handleRedo}
           onSave={handleSave}
+          onUndo={handleUndo}
           saveStatus={saveStatus}
         />
       </div>
@@ -264,4 +373,16 @@ function formatResearchUnlockError(reason: string): string {
   };
 
   return messages[reason] ?? "Research unlock failed.";
+}
+
+function formatUpgradeError(reason: string): string {
+  const messages: Record<string, string> = {
+    insufficient_money: "Not enough money for that upgrade.",
+    missing_definition: "Upgrade failed. Node definition is missing.",
+    missing_node: "Upgrade failed. Select a node first.",
+    no_selected_node: "Select a node before upgrading.",
+    not_upgradeable: "This node has no upgrade path."
+  };
+
+  return messages[reason] ?? "Upgrade failed.";
 }

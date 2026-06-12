@@ -5,6 +5,7 @@ import {
 } from "../state/initialState";
 import { normalizeContractState } from "../state/contracts";
 import { normalizeResearchState } from "../state/research";
+import { normalizeNodeLevel } from "../simulation/upgrades";
 
 import type {
   ContractState,
@@ -140,6 +141,7 @@ function normalizeGraphForSave(graph: GraphState): GraphState {
 function normalizeNodeForSave(node: NodeInstance): NodeInstance {
   return {
     ...node,
+    level: normalizeNodeLevel(node.level),
     position: { ...node.position },
     inputBuffers: cloneResourceMap(node.inputBuffers),
     outputBuffers: cloneResourceMap(node.outputBuffers),

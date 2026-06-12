@@ -11,6 +11,7 @@ import {
   createZeroResourceMap
 } from "../state/initialState";
 import { unlockResearch } from "../state/researchActions";
+import { upgradeNodeOnce } from "../state/upgradeActions";
 import { tickGameState } from "../simulation/tick";
 import { loadGameFromStorage, parseSaveGame } from "./loadGame";
 import { saveGameToStorage, serializeSaveGame } from "./saveGame";
@@ -170,6 +171,48 @@ describe("save/load v0", () => {
       spentResearchPoints: 5
     });
     expect(loadResult.saveGame.gameState.resources.balances.research).toBe(1);
+  });
+
+  it("persists node upgrade levels while resetting runtime fields", () => {
+    const graph = createConnectedGraph();
+    const fundedState = {
+      ...graph.state,
+      resources: {
+        ...graph.state.resources,
+        balances: {
+          ...graph.state.resources.balances,
+          money: 100
+        }
+      }
+    } satisfies GameState;
+    const upgradeResult = upgradeNodeOnce(
+      fundedState,
+      nodeDefinitionsById,
+      graph.parserId
+    );
+
+    expect(upgradeResult.ok).toBe(true);
+    if (!upgradeResult.ok) {
+      return;
+    }
+
+    const tickedState = tickGameState(upgradeResult.state, nodeDefinitionsById);
+    const saveGame = createSaveGame(
+      tickedState,
+      "2026-06-12T12:00:00.000Z"
+    );
+    const loadResult = parseSaveGame(serializeSaveGame(saveGame));
+
+    expect(loadResult.ok).toBe(true);
+    if (!loadResult.ok) {
+      return;
+    }
+
+    const loadedParser = loadResult.saveGame.gameState.graph.nodes[graph.parserId];
+
+    expect(loadedParser?.level).toBe(2);
+    expect(loadedParser?.status).toBe("idle");
+    expect(loadedParser?.runtime.effectiveThroughput).toBe(0);
   });
 
   it("returns a safe error for missing or broken saves", () => {

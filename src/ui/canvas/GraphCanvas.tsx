@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
 
 import { nodeDefinitionsById } from "../../game/data/nodeDefinitions";
 import { connectNodesIfValid, moveNode, selectNode } from "../../game/state/actions";
@@ -19,6 +18,8 @@ import type {
 type NodeDragState = {
   nodeId: NodeId;
   offset: Vec2;
+  startPosition: Vec2;
+  startState: GameState;
 };
 
 type ConnectionDraftState = {
@@ -29,10 +30,19 @@ type ConnectionDraftState = {
 
 type GraphCanvasProps = {
   gameState: GameState;
-  setGameState: Dispatch<SetStateAction<GameState>>;
+  onCommitCurrentState: (previousState: GameState) => void;
+  onCommitStateChange: (updater: (currentState: GameState) => GameState) => void;
+  onTransientStateChange: (
+    updater: (currentState: GameState) => GameState
+  ) => void;
 };
 
-export function GraphCanvas({ gameState, setGameState }: GraphCanvasProps) {
+export function GraphCanvas({
+  gameState,
+  onCommitCurrentState,
+  onCommitStateChange,
+  onTransientStateChange
+}: GraphCanvasProps) {
   const [nodeDrag, setNodeDrag] = useState<NodeDragState | null>(null);
   const [connectionDraft, setConnectionDraft] =
     useState<ConnectionDraftState | null>(null);
@@ -68,9 +78,12 @@ export function GraphCanvas({ gameState, setGameState }: GraphCanvasProps) {
       return;
     }
 
-    setGameState((currentState) => selectNode(currentState, { nodeId }));
+    const selectedState = selectNode(gameState, { nodeId });
+    onTransientStateChange(() => selectedState);
     setNodeDrag({
       nodeId,
+      startPosition: { ...node.position },
+      startState: selectedState,
       offset: {
         x: canvasPoint.x - node.position.x,
         y: canvasPoint.y - node.position.y
@@ -105,7 +118,7 @@ export function GraphCanvas({ gameState, setGameState }: GraphCanvasProps) {
       return;
     }
 
-    setGameState((currentState) => {
+    onCommitStateChange((currentState) => {
       const result = connectNodesIfValid(currentState, nodeDefinitionsById, {
         fromNodeId: connectionDraft.fromNodeId,
         fromPortId: connectionDraft.fromPortId,
@@ -124,7 +137,7 @@ export function GraphCanvas({ gameState, setGameState }: GraphCanvasProps) {
     const point = getCanvasPoint(event);
 
     if (nodeDrag !== null) {
-      setGameState((currentState) =>
+      onTransientStateChange((currentState) =>
         moveNode(currentState, nodeDrag.nodeId, {
           x: point.x - nodeDrag.offset.x,
           y: point.y - nodeDrag.offset.y
@@ -141,8 +154,35 @@ export function GraphCanvas({ gameState, setGameState }: GraphCanvasProps) {
   }
 
   function clearInteractionState() {
+    commitNodeDragIfMoved();
     setNodeDrag(null);
     setConnectionDraft(null);
+  }
+
+  function cancelNodeDrag() {
+    setNodeDrag(null);
+    setConnectionDraft(null);
+  }
+
+  function commitNodeDragIfMoved() {
+    if (nodeDrag === null) {
+      return;
+    }
+
+    const currentNode = gameState.graph.nodes[nodeDrag.nodeId];
+
+    if (currentNode === undefined) {
+      return;
+    }
+
+    if (
+      currentNode.position.x === nodeDrag.startPosition.x &&
+      currentNode.position.y === nodeDrag.startPosition.y
+    ) {
+      return;
+    }
+
+    onCommitCurrentState(nodeDrag.startState);
   }
 
   function getCompatiblePortId(nodeId: NodeId, portId: PortId): PortId | undefined {
@@ -186,8 +226,8 @@ export function GraphCanvas({ gameState, setGameState }: GraphCanvasProps) {
   return (
     <section
       className="graph-canvas"
-      onPointerCancel={clearInteractionState}
-      onPointerLeave={() => setNodeDrag(null)}
+      onPointerCancel={cancelNodeDrag}
+      onPointerLeave={clearInteractionState}
       onPointerMove={handleCanvasPointerMove}
       onPointerUp={clearInteractionState}
     >

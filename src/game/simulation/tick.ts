@@ -6,6 +6,7 @@ import {
   applyResearchEffectsToNodeDefinitions,
   calculateResearchInfrastructureModifiers
 } from "./researchEffects";
+import { applyNodeUpgradeScaling } from "./upgrades";
 
 import type {
   FullResourceMap,
@@ -25,6 +26,7 @@ export const BASE_FACILITY_POWER_CAPACITY = 20;
 export const BASE_HEAT_DISSIPATION_CAPACITY = 10;
 
 type MutableNodeMap = Record<NodeId, NodeInstance>;
+type EffectiveNodeDefinitionsByNodeId = Partial<Record<NodeId, NodeDefinition>>;
 type InfrastructureLoad = {
   powerCapacity: number;
   powerUsage: number;
@@ -49,7 +51,7 @@ export function tickGameState(
   nodeDefinitionsById: Readonly<Record<NodeDefinitionId, NodeDefinition>>,
   deltaSeconds = FIXED_TICK_SECONDS
 ): GameState {
-  const effectiveNodeDefinitionsById = applyResearchEffectsToNodeDefinitions(
+  const researchModifiedNodeDefinitionsById = applyResearchEffectsToNodeDefinitions(
     nodeDefinitionsById,
     state.research,
     researchDefinitionsById
@@ -59,6 +61,10 @@ export function tickGameState(
     researchDefinitionsById
   );
   const nodes = cloneNodesForTick(state.graph.nodes);
+  const effectiveNodeDefinitionsByNodeId = buildEffectiveNodeDefinitionsByNodeId(
+    nodes,
+    researchModifiedNodeDefinitionsById
+  );
   const edges = state.graph.edges;
   const rates = createZeroResourceMap();
   const capacities = createZeroResourceMap();
@@ -66,7 +72,7 @@ export function tickGameState(
   const startingBalances = state.resources.balances;
   const infrastructureLoad = calculateInfrastructureLoad(
     nodes,
-    effectiveNodeDefinitionsById,
+    effectiveNodeDefinitionsByNodeId,
     infrastructureModifiers
   );
   const globalConstraint = calculateGlobalConstraint(infrastructureLoad);
@@ -78,12 +84,12 @@ export function tickGameState(
   rates.heat = infrastructureLoad.heatGeneration;
 
   capacities.compute =
-    getComputeCapacity(nodes, effectiveNodeDefinitionsById) *
+    getComputeCapacity(nodes, effectiveNodeDefinitionsByNodeId) *
     globalConstraint.factor;
   let availableCompute = capacities.compute * deltaSeconds;
 
   for (const node of Object.values(nodes)) {
-    const definition = effectiveNodeDefinitionsById[node.definitionId];
+    const definition = effectiveNodeDefinitionsByNodeId[node.id];
 
     if (definition === undefined || !node.enabled) {
       continue;
@@ -103,7 +109,7 @@ export function tickGameState(
   moveResourcesAcrossEdges(nodes, edges, deltaSeconds);
 
   for (const node of Object.values(nodes)) {
-    const definition = effectiveNodeDefinitionsById[node.definitionId];
+    const definition = effectiveNodeDefinitionsByNodeId[node.id];
 
     if (definition === undefined || !node.enabled || isSourceNode(definition)) {
       continue;
@@ -181,12 +187,27 @@ function cloneNodesForTick(
   );
 }
 
-function getComputeCapacity(
+function buildEffectiveNodeDefinitionsByNodeId(
   nodes: MutableNodeMap,
   nodeDefinitionsById: Readonly<Record<NodeDefinitionId, NodeDefinition>>
+): EffectiveNodeDefinitionsByNodeId {
+  return Object.fromEntries(
+    Object.values(nodes).flatMap((node) => {
+      const definition = nodeDefinitionsById[node.definitionId];
+
+      return definition === undefined
+        ? []
+        : [[node.id, applyNodeUpgradeScaling(definition, node.level)]];
+    })
+  );
+}
+
+function getComputeCapacity(
+  nodes: MutableNodeMap,
+  nodeDefinitionsByNodeId: EffectiveNodeDefinitionsByNodeId
 ): number {
   return Object.values(nodes).reduce((total, node) => {
-    const definition = nodeDefinitionsById[node.definitionId];
+    const definition = nodeDefinitionsByNodeId[node.id];
     if (definition === undefined || !node.enabled) {
       return total;
     }
@@ -197,7 +218,7 @@ function getComputeCapacity(
 
 function calculateInfrastructureLoad(
   nodes: MutableNodeMap,
-  nodeDefinitionsById: Readonly<Record<NodeDefinitionId, NodeDefinition>>,
+  nodeDefinitionsByNodeId: EffectiveNodeDefinitionsByNodeId,
   infrastructureModifiers: InfrastructureModifiers
 ): InfrastructureLoad {
   let powerCapacity =
@@ -208,7 +229,7 @@ function calculateInfrastructureLoad(
   let heatGeneration = 0;
 
   for (const node of Object.values(nodes)) {
-    const definition = nodeDefinitionsById[node.definitionId];
+    const definition = nodeDefinitionsByNodeId[node.id];
 
     if (definition === undefined || !node.enabled) {
       continue;
