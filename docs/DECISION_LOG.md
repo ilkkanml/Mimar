@@ -278,3 +278,66 @@ Consequences:
 - `src/ui/canvas` bileşenleri simulation logic içermez; graph state action/validation fonksiyonlarını çağırır.
 - Node drag ve port drag bağlantı etkileşimi browser smoke test ile doğrulandı.
 - Resource bar, node library, inspector, save/load ve bottom strip M1-008/M1-009 kapsamına bırakıldı.
+
+---
+
+## 2026-06-11 — M1 ResourceBar ve Inspector shared GameState'ten beslenecek
+
+Status: Accepted
+
+Decision:
+
+M1-008 UI state'i `App` seviyesinde tek GameState kaynağı olarak tutulacak. `GraphCanvas`, `ResourceBar` ve `InspectorPanel` aynı state'i okuyacak; fixed simulation tick `tickGameState` ile domain layer'da çalışmaya devam edecek.
+
+Context:
+
+Resource bar para, research, compute kapasitesi/kullanımı ve bottleneck özetini göstermek zorunda. Inspector seçili node'un status, throughput, üretim/tüketim ve önerilen aksiyon bilgilerini simulation runtime çıktılarından okumalı. Bu bilgilerin React component içinde yeniden hesaplanması simulation/UI ayrımını zayıflatırdı.
+
+Consequences:
+
+- Panel view-model derivation `src/ui/panels/panelModels.ts` içinde pure ve test edilebilir kaldı.
+- `GraphCanvas` controlled component oldu; drag ve port connection transient state'i canvas içinde kalmaya devam ediyor.
+- Seçili warning node'larda amber warning border ile cyan selected outline birlikte kullanılıyor.
+- Save/load, NodePalette, contracts, research deck ve future gameplay bu kararla eklenmedi.
+
+---
+
+## 2026-06-11 — M1 SaveGame v0 runtime alanlarını normalize edecek
+
+Status: Accepted
+
+Decision:
+
+M1-009 save/load sistemi `src/game/save` altında schema, migration, serialize/parse ve LocalStorage adapter katmanlarına ayrılacak. Save payload'ı `schemaVersion: 0`, `savedAt`, `gameVersion` ve normalize edilmiş `gameState` içerecek.
+
+Context:
+
+Save/load sonrasında graph ve kaynakların korunması gerekiyor, fakat current drag operation veya tick runtime rate/status gibi transient alanlar save doğruluğu için gerekli değil. Teknik mimari yüklendikten sonra runtime alanlarının yeniden hesaplanmasını öneriyor.
+
+Consequences:
+
+- Node pozisyonları, edge'ler, selection, input/output buffer'ları ve resource balances korunur.
+- Node status/runtime ve resources rate/capacity/usage alanları save/load sırasında sıfırlanır ve sonraki tick ile yeniden hesaplanır.
+- Broken JSON, eksik save ve unsupported schema durumları kullanıcıyı çökertmeden load error sonucuna döner.
+- Save/load UI'si M1 shell içindeki bottom command strip ile sınırlı kaldı; settings modal, cloud save ve export/import eklenmedi.
+
+---
+
+## 2026-06-11 — M1 freeze candidate smoke coverage accepted
+
+Status: Accepted
+
+Decision:
+
+M1-010 closes the M1 implementation pass with a final domain smoke test, browser smoke checklist, and M1 completion report. No M2 gameplay systems are added in this pass.
+
+Context:
+
+M1 already had separate coverage for node definitions, graph actions, connection validation, simulation tick, panels, and save/load v0. The remaining risk was whether these systems worked together as the first vertical prototype loop.
+
+Consequences:
+
+- `src/tests/m1Smoke.test.ts` verifies the full M1 domain loop: first pipeline creation, valid/invalid connections, money/research production, compute capacity/usage, compute bottleneck, selection/Inspector view model, save serialization, load restore, and runtime recompute.
+- `docs/M1_COMPLETION_REPORT.md` is the M1 freeze handoff artifact and records automated checks, browser smoke checklist, known limitations, and next recommendation.
+- M1 is a freeze candidate after passing `npm.cmd run lint`, `npm.cmd test`, `npm.cmd run build`, and browser smoke.
+- Known M1 limitation remains explicit: the current UI uses a seeded graph and does not yet include full Node Palette / place-new-node interaction.

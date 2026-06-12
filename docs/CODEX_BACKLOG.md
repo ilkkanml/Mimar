@@ -243,21 +243,30 @@ Status: Done
 
 Milestone: M1  
 Priority: P1  
-Status: Todo
+Status: Done
 
 ### Tasks
 
 - ResourceBar.
-- NodePalette.
 - InspectorPanel.
-- BottleneckPanel.
+- Selection wiring from node click to inspector.
+- Bottleneck summary in ResourceBar and InspectorPanel.
+- Simulation state wiring for live resource and node runtime readouts.
 
 ### Acceptance
 
 - Money/Data/Compute/Research görünür.
 - Seçili node detayları görünür.
-- Upgrade butonu placeholder veya basic çalışır.
 - Bottleneck reason text görünür.
+- Node drag ve port connection davranışı bozulmaz.
+
+### Completion notes
+
+- ResourceBar added with money, raw/parsed/clean data, compute usage/capacity, research, and main bottleneck summary.
+- InspectorPanel added with empty state and selected-node overview, throughput, reason, and recommended-action sections.
+- App shell now owns shared GameState and advances the M1 fixed simulation tick so ResourceBar, InspectorPanel, and GraphCanvas read the same state.
+- Node click selection updates the inspector; selected nodes keep a distinct outline even when warning state is active.
+- NodePalette, save/load, contracts, research deck, blueprint, staging room, market systems, and future gameplay were intentionally not added in this scoped M1-008 pass.
 
 ---
 
@@ -265,7 +274,7 @@ Status: Todo
 
 Milestone: M1  
 Priority: P0  
-Status: Todo
+Status: Done
 
 ### Tasks
 
@@ -282,27 +291,44 @@ Status: Todo
 - Broken save durumunda oyun çökmez.
 - Save/load roundtrip test yazılır.
 
+### Completion notes
+
+- SaveGame v0 schema helpers, serialization, migration guard, LocalStorage save/load, and clear/reset adapter added under `src/game/save`.
+- Save payloads include `schemaVersion: 0`, `savedAt`, `gameVersion`, and normalized `gameState`.
+- Graph nodes, edges, selection, buffers, and resource balances are persisted; tick/runtime fields are reset and recomputed after load.
+- Bottom command strip added with Save, Load, and New System controls plus save status feedback.
+- Unit tests cover save/load roundtrip, storage adapter behavior, missing/broken save handling, and unsupported schema rejection.
+
 ---
 
 ## M1-010 — Add M1 smoke tests and decision log
 
 Milestone: M1  
 Priority: P1  
-Status: Todo
+Status: Done
 
 ### Tasks
 
-- Node validation tests.
-- Connection validation tests.
-- Tick integration test.
-- Save/load test.
-- `docs/DECISION_LOG.md` güncelle.
+- Add final M1 smoke/integration coverage for graph creation, valid/invalid connections, simulation output, compute bottlenecks, selection/Inspector state, save serialization, load restore, and runtime recompute.
+- Document the M1 browser smoke checklist.
+- Create `docs/M1_COMPLETION_REPORT.md`.
+- Update `docs/DECISION_LOG.md` and project status docs.
 
 ### Acceptance
 
-- En az 5 test geçer.
-- Build/test komutları README'ye eklenir.
-- Kararlar decision log'a yazılır.
+- `npm.cmd run lint` passes.
+- `npm.cmd test` passes.
+- `npm.cmd run build` passes.
+- Browser smoke confirms resources, selection/Inspector, node drag, port connection, edge path update, Save, New System, and Load.
+- `docs/M1_COMPLETION_REPORT.md` records M1 scope, non-scope, test results, browser smoke checklist, limitations, and next recommendation.
+- `docs/DECISION_LOG.md` is updated.
+
+### Completion notes
+
+- Added `src/tests/m1Smoke.test.ts` as final M1 domain smoke coverage.
+- Added `docs/M1_COMPLETION_REPORT.md` with automated checks, browser smoke checklist, known limitations, and freeze recommendation.
+- Required checks passed on 2026-06-11: `npm.cmd run lint`, `npm.cmd test`, and `npm.cmd run build`.
+- Browser smoke passed at `http://127.0.0.1:5173/` with evidence screenshot at `C:/Users/ilkkan/AppData/Local/Temp/mimar-m1-010-smoke.png`.
 
 ---
 

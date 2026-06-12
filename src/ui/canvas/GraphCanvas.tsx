@@ -1,13 +1,8 @@
 import { useMemo, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 
 import { nodeDefinitionsById } from "../../game/data/nodeDefinitions";
-import {
-  addNode,
-  connectNodesIfValid,
-  moveNode,
-  selectNode
-} from "../../game/state/actions";
-import { createInitialGameState } from "../../game/state/initialState";
+import { connectNodesIfValid, moveNode, selectNode } from "../../game/state/actions";
 import { validateConnection } from "../../game/graph/validation";
 import { EdgePreview, EdgeView } from "./EdgeView";
 import { getPortAnchor } from "./geometry";
@@ -32,10 +27,12 @@ type ConnectionDraftState = {
   pointer: Vec2;
 };
 
-export function GraphCanvas() {
-  const [gameState, setGameState] = useState<GameState>(() =>
-    createInitialCanvasState()
-  );
+type GraphCanvasProps = {
+  gameState: GameState;
+  setGameState: Dispatch<SetStateAction<GameState>>;
+};
+
+export function GraphCanvas({ gameState, setGameState }: GraphCanvasProps) {
   const [nodeDrag, setNodeDrag] = useState<NodeDragState | null>(null);
   const [connectionDraft, setConnectionDraft] =
     useState<ConnectionDraftState | null>(null);
@@ -241,44 +238,6 @@ export function GraphCanvas() {
       })}
     </section>
   );
-}
-
-function createInitialCanvasState(): GameState {
-  let state = createInitialGameState("2026-06-11T00:00:00.000Z");
-
-  const internetFeed = addNode(state, {
-    definitionId: "internet_feed",
-    position: { x: 140, y: 210 }
-  });
-  state = internetFeed.state;
-
-  const parser = addNode(state, {
-    definitionId: "parser",
-    position: { x: 390, y: 210 }
-  });
-  state = parser.state;
-
-  const cleaner = addNode(state, {
-    definitionId: "cleaner",
-    position: { x: 640, y: 210 }
-  });
-  state = cleaner.state;
-
-  const uploadGateway = addNode(state, {
-    definitionId: "upload_gateway",
-    position: { x: 890, y: 210 }
-  });
-  state = uploadGateway.state;
-
-  const connection = connectNodesIfValid(state, nodeDefinitionsById, {
-    fromNodeId: internetFeed.value.id,
-    fromPortId: "raw_out",
-    toNodeId: parser.value.id,
-    toPortId: "raw_in"
-  });
-  state = connection.state;
-
-  return selectNode(state, { nodeId: internetFeed.value.id });
 }
 
 function getCanvasPoint(event: React.PointerEvent<HTMLElement>): Vec2 {
