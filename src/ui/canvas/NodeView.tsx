@@ -18,6 +18,13 @@ type NodeViewProps = {
     nodeId: NodeId,
     event: React.PointerEvent<HTMLDivElement>
   ) => void;
+  onNodePointerEnter: (nodeId: NodeId) => void;
+  onNodePointerLeave: (nodeId: NodeId) => void;
+  onNodeFocus: (nodeId: NodeId) => void;
+  onNodeBlur: (
+    nodeId: NodeId,
+    event: React.FocusEvent<HTMLDivElement>
+  ) => void;
   onPortPointerDown: (
     nodeId: NodeId,
     portId: PortId,
@@ -38,6 +45,10 @@ export function NodeView({
   compatiblePortId,
   invalidPortId,
   onNodePointerDown,
+  onNodePointerEnter,
+  onNodePointerLeave,
+  onNodeFocus,
+  onNodeBlur,
   onPortPointerDown,
   onPortPointerUp
 }: NodeViewProps) {
@@ -52,11 +63,19 @@ export function NodeView({
 
   return (
     <div
+      aria-label={`${definition.name} level ${node.level}, ${formatStatus(
+        node.status
+      )}`}
       className={className}
+      onBlur={(event) => onNodeBlur(node.id, event)}
+      onFocus={() => onNodeFocus(node.id)}
       onPointerDown={(event) => onNodePointerDown(node.id, event)}
+      onPointerEnter={() => onNodePointerEnter(node.id)}
+      onPointerLeave={() => onNodePointerLeave(node.id)}
       style={{
         transform: `translate(${node.position.x}px, ${node.position.y}px)`
       }}
+      tabIndex={0}
     >
       <div className="node-view__accent" />
       <div className="node-view__header">

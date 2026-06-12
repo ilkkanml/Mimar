@@ -98,6 +98,34 @@ export type UpgradePreviewModel = {
   effectLabel: string;
 };
 
+export type NodeTooltipStatusTone = "neutral" | "good" | "warning";
+
+export type NodeTooltipUpgradeModel = {
+  currentLevel: number;
+  nextLevel: number;
+  nextCost: number;
+  canUpgrade: boolean;
+  effectLabel: string;
+};
+
+export type NodeTooltipModel = {
+  nodeId: NodeId;
+  name: string;
+  categoryLabel: string;
+  level: number;
+  status: NodeStatus;
+  statusLabel: string;
+  statusTone: NodeTooltipStatusTone;
+  throughputPercent: number;
+  throughputLabel: string;
+  inputs: FlowRateModel[];
+  outputs: FlowRateModel[];
+  compute?: InspectorComputeModel;
+  load?: InspectorLoadModel;
+  upgrade?: NodeTooltipUpgradeModel;
+  bottleneck?: BottleneckSummaryModel;
+};
+
 export type NodeInspectorModel = {
   kind: "node";
   nodeId: NodeId;
@@ -283,6 +311,78 @@ export function buildInspectorModel(
 
   if (recommendedAction !== undefined) {
     model.recommendedAction = recommendedAction;
+  }
+
+  return model;
+}
+
+export function buildNodeTooltipModel(
+  state: GameState,
+  nodeDefinitionsById: Readonly<Record<NodeDefinitionId, NodeDefinition>>,
+  nodeId: NodeId
+): NodeTooltipModel | undefined {
+  const node = state.graph.nodes[nodeId];
+
+  if (node === undefined) {
+    return undefined;
+  }
+
+  const baseDefinition = nodeDefinitionsById[node.definitionId];
+
+  if (baseDefinition === undefined) {
+    return undefined;
+  }
+
+  const definition = buildEffectiveNodeDefinitionForInspector(
+    state,
+    node,
+    nodeDefinitionsById
+  );
+  const bottleneck =
+    node.runtime.bottleneckReason === undefined
+      ? undefined
+      : buildBottleneckSummary(node, definition, node.runtime.bottleneckReason);
+  const compute = buildInspectorComputeModel(node, definition);
+  const load = buildInspectorLoadModel(definition);
+  const upgrade = buildUpgradePreviewModel(state, node, baseDefinition);
+  const throughputPercent = Math.round(node.runtime.effectiveThroughput * 100);
+  const model: NodeTooltipModel = {
+    nodeId: node.id,
+    name: definition.name,
+    categoryLabel: formatCategoryLabel(definition.category),
+    level: node.level,
+    status: node.status,
+    statusLabel: formatStatusLabel(node.status),
+    statusTone: getNodeTooltipStatusTone(node.status),
+    throughputPercent,
+    throughputLabel: `${throughputPercent}% effective`,
+    inputs: buildFlowRates(definition.baseStats.consumes, node.runtime.inputRate),
+    outputs: buildFlowRates(
+      definition.baseStats.produces,
+      node.runtime.outputRate
+    )
+  };
+
+  if (compute !== undefined) {
+    model.compute = compute;
+  }
+
+  if (load !== undefined) {
+    model.load = load;
+  }
+
+  if (upgrade !== undefined) {
+    model.upgrade = {
+      currentLevel: upgrade.currentLevel,
+      nextLevel: upgrade.nextLevel,
+      nextCost: upgrade.nextCost,
+      canUpgrade: upgrade.canUpgrade,
+      effectLabel: upgrade.effectLabel
+    };
+  }
+
+  if (bottleneck !== undefined) {
+    model.bottleneck = bottleneck;
   }
 
   return model;
@@ -600,6 +700,14 @@ function buildDefaultRecommendedAction(node: NodeInstance): string | undefined {
   return node.status === "running"
     ? "Keep this branch balanced and watch the next bottleneck."
     : undefined;
+}
+
+function getNodeTooltipStatusTone(status: NodeStatus): NodeTooltipStatusTone {
+  if (status === "running") {
+    return "good";
+  }
+
+  return status === "idle" ? "neutral" : "warning";
 }
 
 function formatUpgradeEffect(definition: NodeDefinition): string {

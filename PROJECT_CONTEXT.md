@@ -81,7 +81,8 @@ Oyuncu canvas üzerinde node'lar yerleştirir, bağlantılar kurar, veri akış�
 - M2-003 Research Tree v0 completed: simple research definitions, available/unlocked state, deterministic unlock/point deduction, simulation modifiers, minimal Research panel, save/load persistence, and test coverage were added.
 - M2-004 Buy Max and upgrade scaling completed: deterministic node level upgrades, Upgrade/Buy Max actions, simulation scaling, Inspector controls, save/load persistence, and test coverage were added.
 - M2-005 Undo/redo v0 completed: bounded history model, undo/redo actions, tracked graph/upgrade/research/contract user actions, bottom strip controls, non-persisted history stacks, and test coverage were added.
-- Sıradaki önerilen hedef: M2-006 Node tooltip metrics v0.
+- M2-006 Node tooltip metrics v0 completed: deterministic tooltip model, hover/focus canvas tooltip UI, runtime metrics, upgrade/research-derived values, bottleneck summaries, and test coverage were added without changing save schema.
+- Siradaki onerilen hedef: M2-007 Better bottleneck messages v0.
 
 ## İlk milestone hedefi — M1 Vertical Prototype
 

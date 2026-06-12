@@ -14,6 +14,7 @@ import { tickGameState } from "../../game/simulation/tick";
 import {
   buildContractPanelModel,
   buildInspectorModel,
+  buildNodeTooltipModel,
   buildResearchPanelModel,
   buildResourceBarModel
 } from "./panelModels";
@@ -133,6 +134,139 @@ describe("panel view models", () => {
       canBuyMax: true,
       effectLabel: "+18% throughput, +6% compute use, +5% power use"
     });
+  });
+
+  it("builds a normal node tooltip model from runtime metrics", () => {
+    const graph = createInternetFeedParserGraph();
+    const tickedState = tickGameState(graph.state, nodeDefinitionsById);
+
+    const model = buildNodeTooltipModel(
+      tickedState,
+      nodeDefinitionsById,
+      graph.internetFeedId
+    );
+
+    expect(model).toMatchObject({
+      nodeId: graph.internetFeedId,
+      name: "Internet Feed",
+      categoryLabel: "Data Source",
+      level: 1,
+      status: "running",
+      statusLabel: "Running",
+      statusTone: "good",
+      throughputPercent: 100,
+      throughputLabel: "100% effective",
+      outputs: [
+        {
+          resourceId: "rawData",
+          label: "Raw Data",
+          currentRate: 10,
+          configuredRate: 10
+        }
+      ],
+      load: {
+        powerUse: 1,
+        heatOutput: 0.5
+      }
+    });
+    expect(model?.inputs).toEqual([]);
+    expect(model?.compute).toBeUndefined();
+  });
+
+  it("builds an upgraded node tooltip with scaled rates, cost, and effect", () => {
+    const graph = createInternetFeedParserGraph();
+    const upgradedState = tickGameState(
+      withNodeLevel(graph.state, graph.internetFeedId, 2),
+      nodeDefinitionsById
+    );
+
+    const model = buildNodeTooltipModel(
+      upgradedState,
+      nodeDefinitionsById,
+      graph.internetFeedId
+    );
+
+    expect(model?.level).toBe(2);
+    expect(model?.outputs[0]?.currentRate).toBeCloseTo(11.6);
+    expect(model?.outputs[0]?.configuredRate).toBeCloseTo(11.6);
+    expect(model?.load?.powerUse).toBeCloseTo(1.04);
+    expect(model?.load?.heatOutput).toBe(0.5);
+    expect(model?.upgrade).toEqual({
+      currentLevel: 2,
+      nextLevel: 3,
+      nextCost: 2,
+      canUpgrade: false,
+      effectLabel: "+16% throughput, +4% power use"
+    });
+  });
+
+  it("builds a bottlenecked node tooltip with compute, power, and heat metrics", () => {
+    const graph = createInternetFeedParserGraph();
+    const tickedState = tickGameState(graph.state, nodeDefinitionsById);
+
+    const model = buildNodeTooltipModel(
+      tickedState,
+      nodeDefinitionsById,
+      graph.parserId
+    );
+
+    expect(model).toMatchObject({
+      name: "Parser",
+      status: "compute_limited",
+      statusLabel: "Compute Limited",
+      statusTone: "warning",
+      throughputPercent: 0,
+      throughputLabel: "0% effective",
+      compute: {
+        used: 0,
+        requested: 2,
+        provided: 0
+      },
+      load: {
+        powerUse: 2,
+        heatOutput: 1
+      },
+      bottleneck: {
+        reason: "compute_limited",
+        reasonLabel: "Compute Limited",
+        recommendedAction: "Add CPU Rack or reduce competing compute demand."
+      }
+    });
+  });
+
+  it("derives tooltip metrics from active research effects", () => {
+    const graph = createInternetFeedParserGraph();
+    const researchedState = tickGameState(
+      withUnlockedResearch(graph.state, "parser_optimization"),
+      nodeDefinitionsById
+    );
+
+    const model = buildNodeTooltipModel(
+      researchedState,
+      nodeDefinitionsById,
+      graph.parserId
+    );
+
+    expect(model?.compute?.requested).toBeCloseTo(1.6);
+    expect(model?.upgrade?.effectLabel).toBe(
+      "+18% throughput, +6% compute use, +5% power use"
+    );
+  });
+
+  it("keeps tooltip modeling stable when optional metrics are missing", () => {
+    const graph = createInternetFeedParserGraph();
+    const tickedState = tickGameState(graph.state, nodeDefinitionsById);
+
+    const model = buildNodeTooltipModel(
+      tickedState,
+      nodeDefinitionsById,
+      graph.internetFeedId
+    );
+
+    expect(model?.compute).toBeUndefined();
+    expect(
+      buildNodeTooltipModel(tickedState, nodeDefinitionsById, "missing_node")
+    ).toBeUndefined();
   });
 
   it("builds a contract panel model with progress and claim state", () => {
@@ -274,6 +408,49 @@ function withMoney(state: GameState, money: number): GameState {
         ...state.resources.balances,
         money
       }
+    }
+  };
+}
+
+function withNodeLevel(
+  state: GameState,
+  nodeId: NodeId,
+  level: number
+): GameState {
+  const node = state.graph.nodes[nodeId];
+
+  if (node === undefined) {
+    throw new Error(`Missing test node ${nodeId}.`);
+  }
+
+  return {
+    ...state,
+    graph: {
+      ...state.graph,
+      nodes: {
+        ...state.graph.nodes,
+        [nodeId]: {
+          ...node,
+          level
+        }
+      }
+    }
+  };
+}
+
+function withUnlockedResearch(
+  state: GameState,
+  researchId: string
+): GameState {
+  return {
+    ...state,
+    research: {
+      ...state.research,
+      availableResearchIds: state.research.availableResearchIds.filter(
+        (availableResearchId) => availableResearchId !== researchId
+      ),
+      unlockedResearchIds: [...state.research.unlockedResearchIds, researchId],
+      spentResearchPoints: state.research.spentResearchPoints + 5
     }
   };
 }

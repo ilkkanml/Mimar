@@ -449,3 +449,24 @@ Consequences:
 - New user actions after undo clear redo future deterministically.
 - The bottom command strip exposes minimal Undo and Redo controls with disabled states.
 - Full history timeline UI, branching histories, cloud sync, collaboration, and future systems remain out of scope.
+
+---
+
+## 2026-06-12 - M2 node tooltips derive from runtime view models
+
+Status: Accepted
+
+Decision:
+
+M2-006 node tooltip metrics use a deterministic UI view model derived from `GameState`, effective node definitions, research effects, upgrade scaling, and simulation runtime outputs. Tooltip hover/focus state stays local to the canvas and tooltip data is not persisted.
+
+Context:
+
+The user scoped M2-006 to lightweight quick-glance node metrics only. The tooltip needed to show node name, level, status, throughput, flow rates, compute, power/heat, bottleneck reason, and simple upgrade/effect context without duplicating Inspector or changing the visual direction.
+
+Consequences:
+
+- Tooltip model logic lives with existing panel view-model derivation and remains testable without React internals.
+- Canvas nodes show the tooltip on hover and keyboard focus while ports, dragging, Inspector, and command strip behavior remain unchanged.
+- Save schema version remains `0`; tooltip state is runtime-only UI state.
+- Full analytics dashboards, timeline UI, new node palette, side operations, market, blueprint, staging, campaign, monetization, and prestige/reset systems remain out of scope.

@@ -501,12 +501,28 @@ Status: Done
 ## M2-006 — Node tooltip metrics v0
 
 Priority: P1
-Status: Todo
+Status: Done
 
 - Add compact node/port tooltip metric readouts using existing runtime and panel model data.
 - Keep tooltips within the existing visual direction and theme tokens.
 - Include enough metrics to explain throughput, port resource type, and current bottleneck reason without opening a new panel.
 - Do not add a new visual direction, expanded deck, market, blueprint, staging, side operation, or campaign system.
+
+### Completion notes
+
+- M2-006 completed with a deterministic `buildNodeTooltipModel` derived from existing game state, effective node definitions, runtime rates, bottleneck reasons, research modifiers, and upgrade scaling.
+- Canvas nodes now show a compact read-only tooltip on hover or keyboard focus without changing Inspector, NodeView layout, save data, or gameplay rules.
+- Tooltip readouts include node name, level, status, throughput, flow rates, compute where relevant, power/heat contribution, bottleneck reason, and upgrade cost/effect preview.
+- Save schema version remains `0`; tooltip hover/focus state and tooltip models are runtime-only UI data.
+
+## M2-007 - Better bottleneck messages v0
+
+Priority: P1
+Status: Todo
+
+- Refine existing bottleneck reason text into clearer quick fixes across Resource Bar, Inspector, and tooltips.
+- Keep messages derived from current runtime reasons; do not add analytics dashboards, timeline UI, or new simulation systems.
+- Preserve the existing visual direction and avoid new panels unless a tiny text treatment is already supported by current components.
 
 ---
 

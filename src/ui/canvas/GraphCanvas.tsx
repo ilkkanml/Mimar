@@ -1,10 +1,16 @@
 import { useMemo, useState } from "react";
 
 import { nodeDefinitionsById } from "../../game/data/nodeDefinitions";
-import { connectNodesIfValid, moveNode, selectNode } from "../../game/state/actions";
+import {
+  connectNodesIfValid,
+  moveNode,
+  selectNode
+} from "../../game/state/actions";
+import { buildNodeTooltipModel } from "../panels/panelModels";
 import { validateConnection } from "../../game/graph/validation";
 import { EdgePreview, EdgeView } from "./EdgeView";
 import { getPortAnchor } from "./geometry";
+import { NodeTooltip } from "./NodeTooltip";
 import { NodeView } from "./NodeView";
 
 import type {
@@ -46,8 +52,18 @@ export function GraphCanvas({
   const [nodeDrag, setNodeDrag] = useState<NodeDragState | null>(null);
   const [connectionDraft, setConnectionDraft] =
     useState<ConnectionDraftState | null>(null);
+  const [tooltipNodeId, setTooltipNodeId] = useState<NodeId | null>(null);
 
   const selectedNodeId = gameState.graph.selectedNodeIds[0];
+  const tooltipNode =
+    tooltipNodeId === null ? undefined : gameState.graph.nodes[tooltipNodeId];
+  const tooltipModel = useMemo(
+    () =>
+      tooltipNodeId === null
+        ? undefined
+        : buildNodeTooltipModel(gameState, nodeDefinitionsById, tooltipNodeId),
+    [gameState, tooltipNodeId]
+  );
 
   const draftStart = useMemo(() => {
     if (connectionDraft === null) {
@@ -79,6 +95,7 @@ export function GraphCanvas({
     }
 
     const selectedState = selectNode(gameState, { nodeId });
+    setTooltipNodeId(nodeId);
     onTransientStateChange(() => selectedState);
     setNodeDrag({
       nodeId,
@@ -159,9 +176,44 @@ export function GraphCanvas({
     setConnectionDraft(null);
   }
 
+  function clearCanvasInteractionState() {
+    clearInteractionState();
+    setTooltipNodeId(null);
+  }
+
   function cancelNodeDrag() {
     setNodeDrag(null);
     setConnectionDraft(null);
+  }
+
+  function handleNodePointerEnter(nodeId: NodeId) {
+    setTooltipNodeId(nodeId);
+  }
+
+  function handleNodePointerLeave(nodeId: NodeId) {
+    setTooltipNodeId((currentNodeId) =>
+      currentNodeId === nodeId ? null : currentNodeId
+    );
+  }
+
+  function handleNodeFocus(nodeId: NodeId) {
+    setTooltipNodeId(nodeId);
+  }
+
+  function handleNodeBlur(
+    nodeId: NodeId,
+    event: React.FocusEvent<HTMLDivElement>
+  ) {
+    if (
+      event.relatedTarget instanceof Element &&
+      event.currentTarget.contains(event.relatedTarget)
+    ) {
+      return;
+    }
+
+    setTooltipNodeId((currentNodeId) =>
+      currentNodeId === nodeId ? null : currentNodeId
+    );
   }
 
   function commitNodeDragIfMoved() {
@@ -227,7 +279,7 @@ export function GraphCanvas({
     <section
       className="graph-canvas"
       onPointerCancel={cancelNodeDrag}
-      onPointerLeave={clearInteractionState}
+      onPointerLeave={clearCanvasInteractionState}
       onPointerMove={handleCanvasPointerMove}
       onPointerUp={clearInteractionState}
     >
@@ -269,13 +321,24 @@ export function GraphCanvas({
             }
             key={node.id}
             node={node}
+            onNodeBlur={handleNodeBlur}
+            onNodeFocus={handleNodeFocus}
             onNodePointerDown={handleNodePointerDown}
+            onNodePointerEnter={handleNodePointerEnter}
+            onNodePointerLeave={handleNodePointerLeave}
             onPortPointerDown={handlePortPointerDown}
             onPortPointerUp={handlePortPointerUp}
             selected={selectedNodeId === node.id}
           />
         );
       })}
+      {tooltipModel !== undefined && tooltipNode !== undefined ? (
+        <NodeTooltip
+          model={tooltipModel}
+          placement={tooltipNode.position.x >= 700 ? "left" : "right"}
+          position={tooltipNode.position}
+        />
+      ) : null}
     </section>
   );
 }
