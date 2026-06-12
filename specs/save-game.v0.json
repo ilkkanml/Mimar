@@ -90,39 +90,48 @@
         },
         "research": {
           "type": "object",
-          "required": ["purchasedResearchIds", "availableResearchIds"],
+          "required": ["availableResearchIds", "unlockedResearchIds", "spentResearchPoints"],
           "properties": {
-            "purchasedResearchIds": {
-              "type": "array",
-              "items": { "type": "string" },
-              "default": []
-            },
             "availableResearchIds": {
               "type": "array",
               "items": { "type": "string" },
               "default": []
             },
-            "queuedResearchId": { "type": "string" }
+            "unlockedResearchIds": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": []
+            },
+            "spentResearchPoints": {
+              "type": "number",
+              "minimum": 0,
+              "default": 0
+            }
           },
           "additionalProperties": true
         },
         "contracts": {
           "type": "object",
-          "required": ["active", "completedIds", "failedIds"],
+          "required": ["available", "active", "completed", "claimed"],
           "properties": {
+            "available": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/contractRuntimeState" },
+              "default": []
+            },
             "active": {
               "type": "array",
-              "items": { "$ref": "#/$defs/activeContract" },
+              "items": { "$ref": "#/$defs/contractRuntimeState" },
               "default": []
             },
-            "completedIds": {
+            "completed": {
               "type": "array",
-              "items": { "type": "string" },
+              "items": { "$ref": "#/$defs/contractRuntimeState" },
               "default": []
             },
-            "failedIds": {
+            "claimed": {
               "type": "array",
-              "items": { "type": "string" },
+              "items": { "$ref": "#/$defs/contractRuntimeState" },
               "default": []
             }
           },
@@ -252,16 +261,15 @@
       },
       "additionalProperties": true
     },
-    "activeContract": {
+    "contractRuntimeState": {
       "type": "object",
-      "required": ["definitionId", "acceptedAt", "progress", "status"],
+      "required": ["id", "currentProgress", "status"],
       "properties": {
-        "definitionId": { "type": "string" },
-        "acceptedAt": { "type": "string", "format": "date-time" },
-        "progress": { "$ref": "#/$defs/resourceMap" },
+        "id": { "type": "string" },
+        "currentProgress": { "type": "number", "minimum": 0 },
         "status": {
           "type": "string",
-          "enum": ["active", "completed", "failed"]
+          "enum": ["available", "active", "completed", "claimed"]
         }
       },
       "additionalProperties": true

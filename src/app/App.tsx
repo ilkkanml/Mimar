@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { contractDefinitionsById } from "../game/data/contracts";
 import { nodeDefinitionsById } from "../game/data/nodeDefinitions";
+import {
+  researchDefinitions,
+  researchDefinitionsById
+} from "../game/data/research";
 import {
   addNode,
   connectNodesIfValid,
   selectNode
 } from "../game/state/actions";
+import { claimContractReward } from "../game/state/contractActions";
+import { unlockResearch } from "../game/state/researchActions";
 import { createInitialGameState } from "../game/state/initialState";
 import {
   SIMULATION_TICKS_PER_SECOND,
@@ -14,11 +21,15 @@ import {
 import { loadGameFromStorage } from "../game/save/loadGame";
 import { saveGameToStorage } from "../game/save/saveGame";
 import { CommandStrip } from "../ui/panels/CommandStrip";
+import { ContractPanel } from "../ui/panels/ContractPanel";
 import { GraphCanvas } from "../ui/canvas/GraphCanvas";
 import { InspectorPanel } from "../ui/panels/InspectorPanel";
+import { ResearchPanel } from "../ui/panels/ResearchPanel";
 import { ResourceBar } from "../ui/panels/ResourceBar";
 import {
+  buildContractPanelModel,
   buildInspectorModel,
+  buildResearchPanelModel,
   buildResourceBarModel
 } from "../ui/panels/panelModels";
 
@@ -50,6 +61,14 @@ export function App() {
   );
   const inspectorModel = useMemo(
     () => buildInspectorModel(gameState, nodeDefinitionsById),
+    [gameState]
+  );
+  const contractPanelModel = useMemo(
+    () => buildContractPanelModel(gameState, contractDefinitionsById),
+    [gameState]
+  );
+  const researchPanelModel = useMemo(
+    () => buildResearchPanelModel(gameState, researchDefinitions),
     [gameState]
   );
 
@@ -96,13 +115,72 @@ export function App() {
     });
   }
 
+  function handleClaimContract(contractId: string) {
+    const result = claimContractReward(
+      gameState,
+      contractDefinitionsById,
+      contractId
+    );
+
+    if (!result.ok) {
+      setSaveStatus({
+        text:
+          result.reason === "already_claimed"
+            ? "Contract already claimed."
+            : "Contract is not ready.",
+        tone: "warning"
+      });
+      return;
+    }
+
+    setGameState(result.state);
+    setSaveStatus({
+      text: "Contract reward claimed.",
+      tone: "success"
+    });
+  }
+
+  function handleUnlockResearch(researchId: string) {
+    const result = unlockResearch(
+      gameState,
+      researchDefinitionsById,
+      researchId
+    );
+
+    if (!result.ok) {
+      setSaveStatus({
+        text: formatResearchUnlockError(result.reason),
+        tone: "warning"
+      });
+      return;
+    }
+
+    setGameState(result.state);
+    setSaveStatus({
+      text: "Research unlocked.",
+      tone: "success"
+    });
+  }
+
   return (
     <main className="app-root">
       <div className="app-shell">
         <ResourceBar model={resourceBarModel} />
         <div className="app-shell__workspace">
           <GraphCanvas gameState={gameState} setGameState={setGameState} />
-          <InspectorPanel model={inspectorModel} />
+          <div className="app-shell__side-panel">
+            <InspectorPanel model={inspectorModel} />
+            <div className="app-shell__secondary-panels">
+              <ContractPanel
+                model={contractPanelModel}
+                onClaim={handleClaimContract}
+              />
+              <ResearchPanel
+                model={researchPanelModel}
+                onUnlock={handleUnlockResearch}
+              />
+            </div>
+          </div>
         </div>
         <CommandStrip
           bottleneck={resourceBarModel.warning}
@@ -175,4 +253,15 @@ function formatLoadError(reason: string): string {
   };
 
   return messages[reason] ?? "Load failed.";
+}
+
+function formatResearchUnlockError(reason: string): string {
+  const messages: Record<string, string> = {
+    already_unlocked: "Research already unlocked.",
+    insufficient_research: "Not enough research points.",
+    locked: "Research prerequisites are missing.",
+    unknown_research: "Research definition is missing."
+  };
+
+  return messages[reason] ?? "Research unlock failed.";
 }

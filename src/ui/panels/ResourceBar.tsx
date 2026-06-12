@@ -1,4 +1,5 @@
 import type {
+  LoadMetricModel,
   ResourceBarModel,
   ResourceMetricModel
 } from "./panelModels";
@@ -24,6 +25,8 @@ export function ResourceBar({ model }: ResourceBarProps) {
           />
         ))}
         <ComputeMetricItem model={model.compute} />
+        <LoadMetricItem model={model.power} />
+        <LoadMetricItem model={model.heat} />
         <ResourceMetricItem metric={model.research} variant="research" />
       </div>
 
@@ -62,6 +65,33 @@ function ResourceMetricItem({
           .join(" ")}
       >
         {formatRate(metric.rate)}
+      </span>
+    </div>
+  );
+}
+
+function LoadMetricItem({ model }: { model: LoadMetricModel }) {
+  return (
+    <div
+      className={[
+        "resource-item",
+        `resource-item--${model.resourceId}`,
+        model.warning ? "resource-item--warning" : "",
+        model.critical ? "resource-item--critical" : ""
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <span className="resource-item__label">{model.label}</span>
+      <span className="resource-item__value">
+        {model.resourceId === "heat"
+          ? `${formatNumber(model.pressurePercent)}%`
+          : `${formatNumber(model.used)}/${formatNumber(model.capacity)}`}
+      </span>
+      <span className="resource-item__rate">
+        {model.resourceId === "heat"
+          ? `${formatNumber(model.used)}/${formatNumber(model.capacity)}`
+          : "load"}
       </span>
     </div>
   );

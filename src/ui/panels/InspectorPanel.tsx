@@ -82,6 +82,15 @@ function NodeInspector({ model }: { model: NodeInspectorModel }) {
             </strong>
           </div>
         )}
+        {model.load === undefined ? null : (
+          <div className="flow-row flow-row--infrastructure">
+            <span>Power / Heat</span>
+            <strong>
+              {formatNumber(model.load.powerUse)} power /{" "}
+              {formatNumber(model.load.heatOutput)} heat
+            </strong>
+          </div>
+        )}
       </section>
 
       <section className="inspector-section">

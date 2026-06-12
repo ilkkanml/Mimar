@@ -1,8 +1,16 @@
 import { createZeroResourceMap } from "../state/initialState";
+import { contractDefinitionsById } from "../data/contracts";
+import { researchDefinitionsById } from "../data/research";
+import { evaluateContractProgress } from "./contracts";
+import {
+  applyResearchEffectsToNodeDefinitions,
+  calculateResearchInfrastructureModifiers
+} from "./researchEffects";
 
 import type {
   FullResourceMap,
   GameState,
+  BottleneckReason,
   NodeDefinition,
   NodeDefinitionId,
   NodeId,
@@ -13,40 +21,89 @@ import type {
 
 export const SIMULATION_TICKS_PER_SECOND = 10;
 export const FIXED_TICK_SECONDS = 1 / SIMULATION_TICKS_PER_SECOND;
+export const BASE_FACILITY_POWER_CAPACITY = 20;
+export const BASE_HEAT_DISSIPATION_CAPACITY = 10;
 
 type MutableNodeMap = Record<NodeId, NodeInstance>;
+type InfrastructureLoad = {
+  powerCapacity: number;
+  powerUsage: number;
+  heatCapacity: number;
+  heatGeneration: number;
+  heatPressurePercent: number;
+};
+type InfrastructureModifiers = {
+  powerCapacityBonus: number;
+  heatCapacityBonus: number;
+};
+type GlobalConstraint = {
+  factor: number;
+  bottleneckReason?: Extract<
+    BottleneckReason,
+    "power_limited" | "heat_throttled"
+  >;
+};
 
 export function tickGameState(
   state: GameState,
   nodeDefinitionsById: Readonly<Record<NodeDefinitionId, NodeDefinition>>,
   deltaSeconds = FIXED_TICK_SECONDS
 ): GameState {
+  const effectiveNodeDefinitionsById = applyResearchEffectsToNodeDefinitions(
+    nodeDefinitionsById,
+    state.research,
+    researchDefinitionsById
+  );
+  const infrastructureModifiers = calculateResearchInfrastructureModifiers(
+    state.research,
+    researchDefinitionsById
+  );
   const nodes = cloneNodesForTick(state.graph.nodes);
   const edges = state.graph.edges;
   const rates = createZeroResourceMap();
   const capacities = createZeroResourceMap();
   const usage = createZeroResourceMap();
   const startingBalances = state.resources.balances;
+  const infrastructureLoad = calculateInfrastructureLoad(
+    nodes,
+    effectiveNodeDefinitionsById,
+    infrastructureModifiers
+  );
+  const globalConstraint = calculateGlobalConstraint(infrastructureLoad);
 
-  capacities.compute = getComputeCapacity(nodes, nodeDefinitionsById);
+  capacities.power = infrastructureLoad.powerCapacity;
+  capacities.heat = infrastructureLoad.heatCapacity;
+  usage.power = infrastructureLoad.powerUsage;
+  usage.heat = infrastructureLoad.heatGeneration;
+  rates.heat = infrastructureLoad.heatGeneration;
+
+  capacities.compute =
+    getComputeCapacity(nodes, effectiveNodeDefinitionsById) *
+    globalConstraint.factor;
   let availableCompute = capacities.compute * deltaSeconds;
 
   for (const node of Object.values(nodes)) {
-    const definition = nodeDefinitionsById[node.definitionId];
+    const definition = effectiveNodeDefinitionsById[node.definitionId];
 
     if (definition === undefined || !node.enabled) {
       continue;
     }
 
     if (isSourceNode(definition)) {
-      produceToNodeOutputs(node, definition, deltaSeconds, rates);
+      produceToNodeOutputs(
+        node,
+        definition,
+        deltaSeconds,
+        rates,
+        globalConstraint
+      );
     }
   }
 
   moveResourcesAcrossEdges(nodes, edges, deltaSeconds);
 
   for (const node of Object.values(nodes)) {
-    const definition = nodeDefinitionsById[node.definitionId];
+    const definition = effectiveNodeDefinitionsById[node.definitionId];
 
     if (definition === undefined || !node.enabled || isSourceNode(definition)) {
       continue;
@@ -56,7 +113,8 @@ export function tickGameState(
       node,
       definition,
       availableCompute,
-      deltaSeconds
+      deltaSeconds,
+      globalConstraint
     );
 
     availableCompute -= processResult.computeUsed;
@@ -69,6 +127,13 @@ export function tickGameState(
   const balances = calculateResourceBalances(
     startingBalances,
     nodes,
+    rates,
+    deltaSeconds,
+    infrastructureLoad
+  );
+  const contracts = evaluateContractProgress(
+    state.contracts,
+    contractDefinitionsById,
     rates,
     deltaSeconds
   );
@@ -89,7 +154,8 @@ export function tickGameState(
       rates,
       capacities,
       usage
-    }
+    },
+    contracts
   };
 }
 
@@ -129,6 +195,77 @@ function getComputeCapacity(
   }, 0);
 }
 
+function calculateInfrastructureLoad(
+  nodes: MutableNodeMap,
+  nodeDefinitionsById: Readonly<Record<NodeDefinitionId, NodeDefinition>>,
+  infrastructureModifiers: InfrastructureModifiers
+): InfrastructureLoad {
+  let powerCapacity =
+    BASE_FACILITY_POWER_CAPACITY + infrastructureModifiers.powerCapacityBonus;
+  let powerUsage = 0;
+  let heatCapacity =
+    BASE_HEAT_DISSIPATION_CAPACITY + infrastructureModifiers.heatCapacityBonus;
+  let heatGeneration = 0;
+
+  for (const node of Object.values(nodes)) {
+    const definition = nodeDefinitionsById[node.definitionId];
+
+    if (definition === undefined || !node.enabled) {
+      continue;
+    }
+
+    powerCapacity += definition.baseStats.powerCapacity ?? 0;
+    powerUsage += definition.baseStats.powerUse;
+    heatCapacity += definition.baseStats.coolingCapacity ?? 0;
+    heatGeneration += definition.baseStats.heatOutput;
+  }
+
+  return {
+    powerCapacity,
+    powerUsage,
+    heatCapacity,
+    heatGeneration,
+    heatPressurePercent:
+      heatCapacity <= 0
+        ? heatGeneration > 0
+          ? 100
+          : 0
+        : (heatGeneration / heatCapacity) * 100
+  };
+}
+
+function calculateGlobalConstraint(
+  infrastructureLoad: InfrastructureLoad
+): GlobalConstraint {
+  const powerFactor = calculateCapacityFactor(
+    infrastructureLoad.powerCapacity,
+    infrastructureLoad.powerUsage
+  );
+  const heatFactor = calculateCapacityFactor(
+    infrastructureLoad.heatCapacity,
+    infrastructureLoad.heatGeneration
+  );
+  const factor = Math.min(powerFactor, heatFactor);
+
+  if (factor >= 1) {
+    return { factor: 1 };
+  }
+
+  return {
+    factor,
+    bottleneckReason:
+      powerFactor <= heatFactor ? "power_limited" : "heat_throttled"
+  };
+}
+
+function calculateCapacityFactor(capacity: number, demand: number): number {
+  if (demand <= 0) {
+    return 1;
+  }
+
+  return Math.max(0, Math.min(1, capacity / demand));
+}
+
 function isSourceNode(definition: NodeDefinition): boolean {
   return (
     Object.keys(definition.baseStats.produces).length > 0 &&
@@ -143,21 +280,36 @@ function produceToNodeOutputs(
   node: NodeInstance,
   definition: NodeDefinition,
   deltaSeconds: number,
-  rates: FullResourceMap
+  rates: FullResourceMap,
+  globalConstraint: GlobalConstraint
 ): void {
   let producedAny = false;
+  const hasConfiguredOutput = Object.values(definition.baseStats.produces).some(
+    (perSecond) => perSecond > 0
+  );
 
   for (const [resourceId, perSecond] of Object.entries(
     definition.baseStats.produces
   )) {
-    const producedAmount = perSecond * deltaSeconds;
+    const constrainedRate = perSecond * globalConstraint.factor;
+    const producedAmount = constrainedRate * deltaSeconds;
     incrementResource(node.outputBuffers, resourceId as ResourceId, producedAmount);
-    incrementResource(node.runtime.outputRate, resourceId as ResourceId, perSecond);
-    rates[resourceId as ResourceId] += perSecond;
+    incrementResource(
+      node.runtime.outputRate,
+      resourceId as ResourceId,
+      constrainedRate
+    );
+    rates[resourceId as ResourceId] += constrainedRate;
     producedAny = producedAny || producedAmount > 0;
   }
 
-  if (producedAny) {
+  if (globalConstraint.bottleneckReason !== undefined && hasConfiguredOutput) {
+    setBottleneck(
+      node,
+      globalConstraint.bottleneckReason,
+      globalConstraint.factor
+    );
+  } else if (producedAny) {
     node.status = "running";
     node.runtime.utilization = 1;
     node.runtime.effectiveThroughput = 1;
@@ -193,7 +345,8 @@ function processNode(
   node: NodeInstance,
   definition: NodeDefinition,
   availableCompute: number,
-  deltaSeconds: number
+  deltaSeconds: number,
+  globalConstraint: GlobalConstraint
 ): {
   computeUsed: number;
   globalProducedRates: ResourceMap;
@@ -224,7 +377,11 @@ function processNode(
     return { computeUsed: 0, globalProducedRates };
   }
 
-  const throughputFactor = Math.min(inputFactor, computeFactor);
+  const throughputFactor = Math.min(
+    inputFactor,
+    computeFactor,
+    globalConstraint.factor
+  );
 
   for (const [resourceId, perSecond] of nonComputeConsumes) {
     const consumedAmount = perSecond * throughputFactor * deltaSeconds;
@@ -257,10 +414,12 @@ function processNode(
     incrementResource(node.runtime.outputRate, resourceId as ResourceId, producedRate);
   }
 
-  if (throughputFactor < 1 && computeFactor < inputFactor) {
-    setBottleneck(node, "compute_limited");
-  } else if (throughputFactor < 1) {
-    setBottleneck(node, "input_starved");
+  if (throughputFactor < 1) {
+    setBottleneck(
+      node,
+      getLimitingBottleneckReason(inputFactor, computeFactor, globalConstraint),
+      throughputFactor
+    );
   } else {
     node.status = "running";
   }
@@ -272,6 +431,43 @@ function processNode(
     computeUsed,
     globalProducedRates
   };
+}
+
+function getLimitingBottleneckReason(
+  inputFactor: number,
+  computeFactor: number,
+  globalConstraint: GlobalConstraint
+): BottleneckReason {
+  const candidates: Array<{
+    factor: number;
+    priority: number;
+    reason: BottleneckReason;
+  }> = [
+    {
+      factor: inputFactor,
+      priority: 2,
+      reason: "input_starved"
+    },
+    {
+      factor: computeFactor,
+      priority: 1,
+      reason: "compute_limited"
+    }
+  ];
+
+  if (globalConstraint.bottleneckReason !== undefined) {
+    candidates.push({
+      factor: globalConstraint.factor,
+      priority: 0,
+      reason: globalConstraint.bottleneckReason
+    });
+  }
+
+  const bestCandidate = candidates.sort(
+    (left, right) => left.factor - right.factor || left.priority - right.priority
+  )[0];
+
+  return bestCandidate?.reason ?? "input_starved";
 }
 
 function getInputFactor(
@@ -298,12 +494,18 @@ function calculateResourceBalances(
   startingBalances: FullResourceMap,
   nodes: MutableNodeMap,
   rates: FullResourceMap,
-  deltaSeconds: number
+  deltaSeconds: number,
+  infrastructureLoad: InfrastructureLoad
 ): FullResourceMap {
   const balances = createZeroResourceMap();
 
   balances.money = startingBalances.money + rates.money * deltaSeconds;
   balances.research = startingBalances.research + rates.research * deltaSeconds;
+  balances.power = Math.max(
+    0,
+    infrastructureLoad.powerCapacity - infrastructureLoad.powerUsage
+  );
+  balances.heat = infrastructureLoad.heatPressurePercent;
 
   for (const node of Object.values(nodes)) {
     for (const [resourceId, amount] of Object.entries(node.inputBuffers)) {
@@ -320,12 +522,13 @@ function calculateResourceBalances(
 
 function setBottleneck(
   node: NodeInstance,
-  reason: "input_starved" | "compute_limited"
+  reason: BottleneckReason,
+  utilization = 0
 ): void {
   node.status = reason;
   node.runtime.bottleneckReason = reason;
-  node.runtime.utilization = 0;
-  node.runtime.effectiveThroughput = 0;
+  node.runtime.utilization = utilization;
+  node.runtime.effectiveThroughput = utilization;
 }
 
 function incrementResource(

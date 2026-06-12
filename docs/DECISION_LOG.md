@@ -341,3 +341,67 @@ Consequences:
 - `docs/M1_COMPLETION_REPORT.md` is the M1 freeze handoff artifact and records automated checks, browser smoke checklist, known limitations, and next recommendation.
 - M1 is a freeze candidate after passing `npm.cmd run lint`, `npm.cmd test`, `npm.cmd run build`, and browser smoke.
 - Known M1 limitation remains explicit: the current UI uses a seeded graph and does not yet include full Node Palette / place-new-node interaction.
+
+---
+
+## 2026-06-11 — M2 power and heat use deterministic facility baselines
+
+Status: Accepted
+
+Decision:
+
+M2-001 power/heat sistemi, yeni node veya market yüzeyi eklemeden mevcut resource map yapısını genişleterek uygulanacak. Simulation her tick base facility power capacity `20`, base heat safe capacity `10`, enabled node `powerUse` toplamı, enabled node `heatOutput` toplamı ve heat pressure yüzdesi hesaplar.
+
+Context:
+
+Kullanıcı M1 baseline'ın frozen kaldığını ve yalnızca M2-001 Power and Heat System kapsamının açılmasını istedi. Mevcut M1 node definition'ları zaten basic `powerUse` ve `heatOutput` değerleri taşıyordu; bu slice'ın ana işi bu değerleri deterministic simulation ve UI readout içine bağlamak oldu.
+
+Consequences:
+
+- `schemaVersion: 0` korunur; power ve heat değerleri mevcut `resources.capacities`, `resources.usage`, `resources.rates` ve `resources.balances` map'leri içinde kalır.
+- Power demand capacity üstüne çıkarsa global throughput factor uygulanır ve affected nodes `power_limited` reason üretir.
+- Heat generation safe capacity üstüne çıkarsa global throughput factor uygulanır ve affected nodes `heat_throttled` reason üretir.
+- Future Power Supply / Cooling Fan node'ları için optional `powerCapacity` ve `coolingCapacity` stats alanları hazırdır, ancak M2-001 bu node'ları veya Node Library genişletmesini uygulamaz.
+- Resource Bar ve Inspector mevcut visual direction içinde Power / Heat readout gösterir.
+
+---
+
+## 2026-06-11 - M2 contracts use simple lifecycle arrays and rate-based progress
+
+Status: Accepted
+
+Decision:
+
+M2-002 Contract System v0 uses data-driven contract definitions plus simple `available`, `active`, `completed`, and `claimed` runtime lists in `GameState.contracts`. Active contract progress is calculated from existing resource output rates during the deterministic simulation tick. Claiming a completed contract pays configured money/research rewards once and moves it to claimed status.
+
+Context:
+
+The user explicitly scoped M2-002 to a simple deterministic contract system and excluded the full Contract Deck, marketplace, complex deadlines, negotiation, reputation, campaign, monetization, and new visual direction. The older backlog stub mentioned deadline/reward/penalty and five contracts, but this pass narrows the implementation to the requested v0 model.
+
+Consequences:
+
+- `schemaVersion: 0` remains unchanged, but `contracts` now persists lifecycle arrays with `{ id, currentProgress, status }` runtime entries.
+- Save/load normalization preserves v0 contract lifecycle state and falls back to the seeded v0 state for older placeholder contract shapes.
+- The initial seed has one active starter intake contract plus available clean-data and upload-revenue contracts.
+- The UI remains a minimal right-rail contract panel/card under the existing Inspector area; no future Contract Deck or marketplace surface is introduced.
+
+---
+
+## 2026-06-11 - M2 research uses simple unlock state and deterministic modifiers
+
+Status: Accepted
+
+Decision:
+
+M2-003 Research Tree v0 uses data-driven research definitions plus simple `availableResearchIds`, `unlockedResearchIds`, and `spentResearchPoints` state. Unlocking research is a pure action that checks prerequisites, affordability, and duplicate unlocks, then deducts research points once. Research effects are recomputed from unlocked ids during simulation instead of being stored as runtime modifiers.
+
+Context:
+
+The user scoped M2-003 to a simple deterministic research model and explicitly excluded the full Research Deck visual experience, complex branching, timed research queues, workers, offline progress, future systems, and new visual direction. Existing M1/M2 systems already provide research points, compute, power, heat, throughput, and upload output, so the first research set only modifies those surfaces.
+
+Consequences:
+
+- `schemaVersion: 0` remains unchanged, but the v0 save schema now records `availableResearchIds`, `unlockedResearchIds`, and `spentResearchPoints`.
+- The first seeded research definitions are Parser Optimization, Cooling Discipline, Cleaner Efficiency, Power Routing, and Upload Compression.
+- Simulation applies unlocked effects to effective node definitions or facility-level power/heat capacity before each tick.
+- The UI is limited to a compact right-rail Research panel/cards under the existing visual language; no full deck, queue, tree canvas, marketplace, or future progression surface is introduced.

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { contractDefinitionsById } from "../../game/data/contracts";
 import { nodeDefinitionsById } from "../../game/data/nodeDefinitions";
+import { researchDefinitions } from "../../game/data/research";
 import {
   addNode,
   connectNodesIfValid,
@@ -9,7 +11,12 @@ import {
 import { createInitialGameState } from "../../game/state/initialState";
 import { tickGameState } from "../../game/simulation/tick";
 
-import { buildInspectorModel, buildResourceBarModel } from "./panelModels";
+import {
+  buildContractPanelModel,
+  buildInspectorModel,
+  buildResearchPanelModel,
+  buildResourceBarModel
+} from "./panelModels";
 
 import type { GameState, NodeId } from "../../game/state/types";
 
@@ -24,6 +31,20 @@ describe("panel view models", () => {
     expect(model.research.label).toBe("Research");
     expect(model.compute.capacity).toBe(0);
     expect(model.compute.warning).toBe(true);
+    expect(model.power).toMatchObject({
+      label: "Power",
+      used: 3,
+      capacity: 20,
+      pressurePercent: 15,
+      warning: false
+    });
+    expect(model.heat).toMatchObject({
+      label: "Heat",
+      used: 1.5,
+      capacity: 10,
+      pressurePercent: 15,
+      warning: false
+    });
     expect(model.warning).toMatchObject({
       nodeName: "Parser",
       reason: "compute_limited",
@@ -76,10 +97,94 @@ describe("panel view models", () => {
       requested: 2,
       provided: 0
     });
+    expect(model.load).toEqual({
+      powerUse: 2,
+      heatOutput: 1
+    });
     expect(model.bottleneck?.reason).toBe("compute_limited");
     expect(model.recommendedAction).toBe(
       "Add CPU Rack or reduce competing compute demand."
     );
+  });
+
+  it("builds a contract panel model with progress and claim state", () => {
+    const state = {
+      ...createInitialGameState("2026-06-11T00:00:00.000Z"),
+      contracts: {
+        available: [],
+        active: [],
+        completed: [
+          {
+            id: "starter_intake_check",
+            currentProgress: 25,
+            status: "completed"
+          }
+        ],
+        claimed: []
+      }
+    } satisfies GameState;
+
+    const model = buildContractPanelModel(state, contractDefinitionsById);
+
+    expect(model).toMatchObject({
+      availableCount: 0,
+      activeCount: 0,
+      completedCount: 1,
+      claimedCount: 0,
+      focusedContract: {
+        id: "starter_intake_check",
+        title: "Starter Intake Check",
+        status: "completed",
+        statusLabel: "Completed",
+        progressCurrent: 25,
+        progressRequired: 25,
+        progressPercent: 100,
+        requirementLabel: "25 Raw Data",
+        rewardLabel: "$75 + 6 Research",
+        canClaim: true
+      }
+    });
+  });
+
+  it("builds a research panel model with status, cost, and locked reason", () => {
+    const initialState = createInitialGameState("2026-06-11T00:00:00.000Z");
+    const state = {
+      ...initialState,
+      resources: {
+        ...initialState.resources,
+        balances: {
+          ...initialState.resources.balances,
+          research: 6
+        }
+      }
+    } satisfies GameState;
+
+    const model = buildResearchPanelModel(state, researchDefinitions);
+
+    expect(model).toMatchObject({
+      availableCount: 2,
+      lockedCount: 3,
+      unlockedCount: 0,
+      spentResearchPoints: 0,
+      focusedResearch: {
+        id: "parser_optimization",
+        title: "Parser Optimization",
+        status: "available",
+        statusLabel: "Available",
+        costResearch: 5,
+        currentResearch: 6,
+        effectLabel: "Parser compute use -20%",
+        affordable: true,
+        canUnlock: true
+      }
+    });
+
+    expect(
+      model.cards.find((card) => card.id === "cleaner_efficiency")
+    ).toMatchObject({
+      status: "locked",
+      lockedReason: "Requires Parser Optimization."
+    });
   });
 });
 

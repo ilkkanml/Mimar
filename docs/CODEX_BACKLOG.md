@@ -336,35 +336,103 @@ Status: Done
 
 ## M2-001 — Power and heat system
 
+Milestone: M2
 Priority: P0  
-Status: Todo
+Status: Done
 
-- Power capacity and usage.
-- Heat accumulation.
-- Cooling node.
-- Heat throttling.
-- UI indicators.
+### Tasks
+
+- Core resource state içinde power capacity/usage hesapla.
+- Core resource state içinde heat generation ve heat pressure/level hesapla.
+- Mevcut node definition `powerUse` ve `heatOutput` değerlerini simulation'da kullan.
+- Power yetersizse deterministic throughput throttling ve `power_limited` reason üret.
+- Heat pressure safe capacity üstüne çıkarsa deterministic throughput throttling ve `heat_throttled` reason üret.
+- Resource Bar içinde Power ve Heat göstergelerini mevcut visual direction ile göster.
+- Inspector içinde seçili node'un power/heat katkısını göster.
+- Power/heat hesapları ve warning reason'ları için test ekle.
+
+### Acceptance
+
+- `resources.capacities.power` ve `resources.usage.power` her tick güncellenir.
+- `resources.capacities.heat`, `resources.usage.heat`, `resources.rates.heat` ve `resources.balances.heat` her tick güncellenir.
+- Power demand kapasiteyi aşarsa node runtime status/reason `power_limited` olur.
+- Heat generation safe capacity üstüne çıkarsa node runtime status/reason `heat_throttled` olur.
+- Resource Bar Power ve Heat değerlerini gösterir.
+- Inspector seçili node için Power / Heat katkısını gösterir.
+- `npm.cmd run lint`, `npm.cmd test`, `npm.cmd run build` ve browser smoke geçer.
+
+### Completion notes
+
+- M2-001 deterministic facility baseline ile tamamlandı: base power capacity `20`, base heat safe capacity `10`.
+- M1 node definition'larındaki mevcut `powerUse` ve `heatOutput` değerleri artık simulation tarafından aktif olarak kullanılıyor.
+- Future Power Supply / Cooling Fan node'ları için `powerCapacity` ve `coolingCapacity` optional stat alanları eklendi, ancak yeni node veya market/palette sistemi eklenmedi.
+- Save schema version değiştirilmedi; power/heat mevcut resource map yapıları içinde tutuluyor ve runtime fields load sonrası yeniden hesaplanmaya devam ediyor.
 
 ## M2-002 — Contract system v0
 
+Milestone: M2
 Priority: P0  
-Status: Todo
+Status: Done
 
-- Contract definitions.
-- Active contract state.
-- Contract progress by delivered resource.
-- Deadline/reward/penalty.
-- First 5 contracts.
+### Tasks
+
+- Add simple v0 contract definitions with title, description, requirement type, required amount, reward money/research, progress, and lifecycle status.
+- Extend `GameState.contracts` with available, active, completed, and claimed contract lists.
+- Seed a small M2 contract set for starter raw-data intake, clean-data delivery, and upload revenue.
+- Evaluate active contract progress from existing resource output rates during simulation ticks.
+- Add deterministic reward claiming for completed contracts and prevent duplicate claims.
+- Persist contract lifecycle state through save/load v0.
+- Add a minimal contract panel/card in the existing right rail.
+- Add tests for progress, completion, reward claim, duplicate claim prevention, save/load persistence, and panel view-model output.
+
+### Acceptance
+
+- Active contracts advance from simulation rates without React coupling.
+- Completed contracts move to completed status when progress reaches the required amount.
+- Claiming pays the configured money/research reward once and moves the contract to claimed status.
+- Save/load preserves active/completed/claimed contract state while runtime resource rates still recompute after load.
+- UI shows contract title, progress, status, reward, and a claim action only when completed.
+- No full Contract Deck, marketplace, deadline, negotiation, reputation, campaign, or monetization system is added.
+
+### Completion notes
+
+- M2-002 completed with three deterministic v0 contract definitions: starter intake, clean data delivery, and upload revenue trial.
+- `schemaVersion: 0` is retained; contract lifecycle arrays are normalized on save/load and older placeholder contract blobs fall back to the seeded v0 state.
+- The minimal contract UI is a right-rail panel under Inspector using the existing visual direction and component language.
+- Deadline/penalty behavior from the older broad backlog stub is intentionally deferred because the M2-002 prompt explicitly excluded complex deadlines and marketplace-style systems.
 
 ## M2-003 — Research tree v0
 
+Milestone: M2
 Priority: P0  
-Status: Todo
+Status: Done
 
-- Research definitions.
-- Unlock requirements.
-- Purchase research.
-- Unlock node/upgrade.
+### Tasks
+
+- Add simple v0 research definitions with id, title, description, cost, prerequisites, status, and deterministic effect metadata.
+- Extend `GameState.research` with available ids, unlocked ids, and spent research points.
+- Add unlock logic that checks availability, prerequisites, affordability, point deduction, and duplicate unlock prevention.
+- Apply research effects only to existing M1/M2 calculations: node compute use, heat output, upload output, effective power capacity, and effective heat capacity.
+- Persist unlocked research state through save/load v0 while recomputing derived effects after load.
+- Add a minimal right-rail Research panel using the existing visual direction.
+- Add tests for availability, prerequisites, insufficient research points, unlock success, duplicate prevention, point deduction, effect application, panel output, and save/load persistence.
+
+### Acceptance
+
+- Research definitions are data-driven and independent from React components.
+- Locked research remains blocked until prerequisites are unlocked.
+- Unlocking available research deducts research points once and refreshes availability.
+- Unlocked effects are applied deterministically during simulation ticks.
+- Save/load preserves unlocked research ids and spent research points.
+- UI shows research title, cost, status, prerequisite reason, effect, and unlock action when available and affordable.
+- No full Research Deck, complex branching, timed queues, workers, offline progress, future systems, or new visual direction is added.
+
+### Completion notes
+
+- M2-003 completed with five deterministic v0 research definitions: Parser Optimization, Cooling Discipline, Cleaner Efficiency, Power Routing, and Upload Compression.
+- `schemaVersion: 0` is retained; the save schema now records `availableResearchIds`, `unlockedResearchIds`, and `spentResearchPoints`.
+- Runtime research effects are recomputed from unlocked ids during simulation and are not stored as separate derived modifiers.
+- The starter intake contract now grants a small research reward so the M2 prototype can manually unlock the first research card.
 
 ## M2-004 — Buy Max and upgrade scaling
 

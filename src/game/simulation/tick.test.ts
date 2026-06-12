@@ -4,9 +4,19 @@ import { nodeDefinitionsById } from "../data/nodeDefinitions";
 import { addNode, connectNodesIfValid } from "../state/actions";
 import { createInitialGameState } from "../state/initialState";
 
-import { FIXED_TICK_SECONDS, tickGameState } from "./tick";
+import {
+  BASE_FACILITY_POWER_CAPACITY,
+  BASE_HEAT_DISSIPATION_CAPACITY,
+  FIXED_TICK_SECONDS,
+  tickGameState
+} from "./tick";
 
-import type { GameState, NodeId } from "../state/types";
+import type {
+  GameState,
+  NodeDefinition,
+  NodeId,
+  ResearchId
+} from "../state/types";
 
 describe("basic simulation tick", () => {
   it("produces money through Internet Feed -> Parser -> Cleaner -> Upload Gateway", () => {
@@ -59,7 +69,140 @@ describe("basic simulation tick", () => {
     ).toBeGreaterThan(0);
     expect(stateAfterOneTick.resources.balances.rawData).toBeGreaterThan(0);
   });
+
+  it("calculates total power usage, heat generation, and heat pressure", () => {
+    const graph = createPipelineGraph({ includeCpuRack: true });
+    const stateAfterTicks = tickMany(graph.state, 20);
+
+    expect(stateAfterTicks.resources.capacities.power).toBe(
+      BASE_FACILITY_POWER_CAPACITY
+    );
+    expect(stateAfterTicks.resources.usage.power).toBe(13);
+    expect(stateAfterTicks.resources.capacities.heat).toBe(
+      BASE_HEAT_DISSIPATION_CAPACITY
+    );
+    expect(stateAfterTicks.resources.usage.heat).toBe(8);
+    expect(stateAfterTicks.resources.rates.heat).toBe(8);
+    expect(stateAfterTicks.resources.balances.heat).toBe(80);
+  });
+
+  it("marks nodes power-limited when power demand exceeds capacity", () => {
+    let state = createInitialGameState("2026-06-11T00:00:00.000Z");
+    const source = addNode(state, {
+      definitionId: powerHungryDefinition.id,
+      position: { x: 0, y: 0 }
+    });
+    state = source.state;
+
+    const stateAfterTick = tickGameState(state, powerHungryDefinitions);
+    const sourceAfterTick = stateAfterTick.graph.nodes[source.value.id];
+
+    expect(stateAfterTick.resources.capacities.power).toBe(
+      BASE_FACILITY_POWER_CAPACITY
+    );
+    expect(stateAfterTick.resources.usage.power).toBe(25);
+    expect(stateAfterTick.resources.balances.power).toBe(0);
+    expect(sourceAfterTick?.status).toBe("power_limited");
+    expect(sourceAfterTick?.runtime.bottleneckReason).toBe("power_limited");
+    expect(sourceAfterTick?.runtime.effectiveThroughput).toBeCloseTo(0.8);
+    expect(stateAfterTick.resources.rates.rawData).toBe(8);
+  });
+
+  it("marks nodes heat-throttled when heat generation exceeds safe capacity", () => {
+    let state = createInitialGameState("2026-06-11T00:00:00.000Z");
+
+    const firstCpuRack = addNode(state, {
+      definitionId: "cpu_rack",
+      position: { x: 0, y: 0 }
+    });
+    state = firstCpuRack.state;
+
+    const secondCpuRack = addNode(state, {
+      definitionId: "cpu_rack",
+      position: { x: 200, y: 0 }
+    });
+    state = secondCpuRack.state;
+
+    const thirdCpuRack = addNode(state, {
+      definitionId: "cpu_rack",
+      position: { x: 400, y: 0 }
+    });
+    state = thirdCpuRack.state;
+
+    const stateAfterTick = tickGameState(state, nodeDefinitionsById);
+    const heatFactor = BASE_HEAT_DISSIPATION_CAPACITY / 12;
+
+    expect(stateAfterTick.resources.usage.power).toBe(15);
+    expect(stateAfterTick.resources.usage.heat).toBe(12);
+    expect(stateAfterTick.resources.balances.heat).toBe(120);
+    expect(stateAfterTick.resources.capacities.compute).toBeCloseTo(
+      30 * heatFactor
+    );
+    expect(
+      stateAfterTick.graph.nodes[firstCpuRack.value.id]?.status
+    ).toBe("heat_throttled");
+    expect(
+      stateAfterTick.graph.nodes[firstCpuRack.value.id]?.runtime
+        .effectiveThroughput
+    ).toBeCloseTo(heatFactor);
+  });
+
+  it("applies unlocked research effects to tick calculations", () => {
+    const graph = createPipelineGraph({ includeCpuRack: true });
+    const researchedState = withUnlockedResearch(graph.state, [
+      "parser_optimization",
+      "cooling_discipline"
+    ]);
+
+    const stateAfterTick = tickGameState(
+      researchedState,
+      nodeDefinitionsById,
+      FIXED_TICK_SECONDS
+    );
+
+    expect(stateAfterTick.resources.capacities.heat).toBe(
+      BASE_HEAT_DISSIPATION_CAPACITY + 2
+    );
+    expect(stateAfterTick.resources.balances.heat).toBeCloseTo(8 / 12 * 100);
+    expect(stateAfterTick.resources.usage.compute).toBeCloseTo(1.6);
+    expect(
+      stateAfterTick.graph.nodes[graph.parserId]?.runtime.inputRate.compute
+    ).toBeCloseTo(1.6);
+  });
 });
+
+const powerHungryDefinition = {
+  id: "power_hungry_source",
+  name: "Power Hungry Source",
+  category: "data_source",
+  description: "Test-only source with high power usage and low heat.",
+  baseCost: 0,
+  costGrowth: 1,
+  inputs: [],
+  outputs: [
+    {
+      id: "raw_out",
+      direction: "output",
+      resourceType: "rawData",
+      throughput: 10
+    }
+  ],
+  baseStats: {
+    produces: { rawData: 10 },
+    consumes: {},
+    computeProduced: 0,
+    computeUsed: 0,
+    powerUse: 25,
+    heatOutput: 1,
+    storageCapacity: 0
+  },
+  upgradeScaling: {},
+  unlockRequirements: []
+} satisfies NodeDefinition;
+
+const powerHungryDefinitions: Readonly<Record<string, NodeDefinition>> = {
+  [powerHungryDefinition.id]: powerHungryDefinition
+};
 
 function tickMany(state: GameState, tickCount: number): GameState {
   let nextState = state;
@@ -69,6 +212,20 @@ function tickMany(state: GameState, tickCount: number): GameState {
   }
 
   return nextState;
+}
+
+function withUnlockedResearch(
+  state: GameState,
+  unlockedResearchIds: ResearchId[]
+): GameState {
+  return {
+    ...state,
+    research: {
+      availableResearchIds: [],
+      unlockedResearchIds,
+      spentResearchPoints: 0
+    }
+  };
 }
 
 function createPipelineGraph(options: { includeCpuRack: boolean }) {

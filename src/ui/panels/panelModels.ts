@@ -1,11 +1,18 @@
 import type {
   BottleneckReason,
+  ContractDefinition,
+  ContractDefinitionId,
+  ContractRuntimeState,
+  ContractStatus,
   GameState,
   NodeDefinition,
   NodeDefinitionId,
   NodeId,
   NodeInstance,
   NodeStatus,
+  ResearchDefinition,
+  ResearchId,
+  ResearchStatus,
   ResourceId,
   ResourceMap
 } from "../../game/state/types";
@@ -23,6 +30,16 @@ export type ComputeMetricModel = {
   warning: boolean;
 };
 
+export type LoadMetricModel = {
+  resourceId: "power" | "heat";
+  label: string;
+  used: number;
+  capacity: number;
+  pressurePercent: number;
+  warning: boolean;
+  critical: boolean;
+};
+
 export type BottleneckSummaryModel = {
   nodeId: NodeId;
   nodeName: string;
@@ -37,6 +54,8 @@ export type ResourceBarModel = {
   data: ResourceMetricModel[];
   research: ResourceMetricModel;
   compute: ComputeMetricModel;
+  power: LoadMetricModel;
+  heat: LoadMetricModel;
   warning?: BottleneckSummaryModel;
 };
 
@@ -53,6 +72,11 @@ export type InspectorComputeModel = {
   provided: number;
 };
 
+export type InspectorLoadModel = {
+  powerUse: number;
+  heatOutput: number;
+};
+
 export type NodeInspectorModel = {
   kind: "node";
   nodeId: NodeId;
@@ -66,6 +90,7 @@ export type NodeInspectorModel = {
   outputs: FlowRateModel[];
   throughputPercent: number;
   compute?: InspectorComputeModel;
+  load?: InspectorLoadModel;
   bottleneck?: BottleneckSummaryModel;
   recommendedAction?: string;
 };
@@ -78,14 +103,59 @@ export type EmptyInspectorModel = {
 
 export type InspectorModel = EmptyInspectorModel | NodeInspectorModel;
 
+export type ContractCardModel = {
+  id: ContractDefinitionId;
+  title: string;
+  description: string;
+  status: ContractStatus;
+  statusLabel: string;
+  progressCurrent: number;
+  progressRequired: number;
+  progressPercent: number;
+  requirementLabel: string;
+  rewardLabel: string;
+  canClaim: boolean;
+};
+
+export type ContractPanelModel = {
+  availableCount: number;
+  activeCount: number;
+  completedCount: number;
+  claimedCount: number;
+  focusedContract?: ContractCardModel;
+};
+
+export type ResearchCardModel = {
+  id: ResearchId;
+  title: string;
+  description: string;
+  costResearch: number;
+  currentResearch: number;
+  status: ResearchStatus;
+  statusLabel: string;
+  effectLabel: string;
+  affordable: boolean;
+  canUnlock: boolean;
+  lockedReason?: string;
+};
+
+export type ResearchPanelModel = {
+  availableCount: number;
+  lockedCount: number;
+  unlockedCount: number;
+  spentResearchPoints: number;
+  cards: ResearchCardModel[];
+  focusedResearch?: ResearchCardModel;
+};
+
 const DATA_RESOURCE_IDS: ResourceId[] = ["rawData", "parsedData", "cleanData"];
 
 const BOTTLENECK_PRIORITY: Record<BottleneckReason, number> = {
-  compute_limited: 0,
-  input_starved: 1,
-  output_blocked: 2,
-  power_limited: 3,
-  heat_throttled: 4,
+  power_limited: 0,
+  heat_throttled: 1,
+  compute_limited: 2,
+  input_starved: 3,
+  output_blocked: 4,
   storage_full: 5,
   network_limited: 6
 };
@@ -109,7 +179,9 @@ export function buildResourceBarModel(
         (state.resources.capacities.compute > 0 &&
           state.resources.usage.compute / state.resources.capacities.compute >=
             0.9)
-    }
+    },
+    power: buildLoadMetric(state, "power", warning?.reason === "power_limited"),
+    heat: buildLoadMetric(state, "heat", warning?.reason === "heat_throttled")
   };
 
   if (warning !== undefined) {
@@ -161,11 +233,16 @@ export function buildInspectorModel(
     throughputPercent: Math.round(node.runtime.effectiveThroughput * 100)
   };
   const compute = buildInspectorComputeModel(node, definition);
+  const load = buildInspectorLoadModel(definition);
   const recommendedAction =
     bottleneck?.recommendedAction ?? buildDefaultRecommendedAction(node);
 
   if (compute !== undefined) {
     model.compute = compute;
+  }
+
+  if (load !== undefined) {
+    model.load = load;
   }
 
   if (bottleneck !== undefined) {
@@ -174,6 +251,61 @@ export function buildInspectorModel(
 
   if (recommendedAction !== undefined) {
     model.recommendedAction = recommendedAction;
+  }
+
+  return model;
+}
+
+export function buildContractPanelModel(
+  state: GameState,
+  contractDefinitionsById: Readonly<
+    Record<ContractDefinitionId, ContractDefinition>
+  >
+): ContractPanelModel {
+  const focusedContract = findFocusedContract(state);
+  const model: ContractPanelModel = {
+    availableCount: state.contracts.available.length,
+    activeCount: state.contracts.active.length,
+    completedCount: state.contracts.completed.length,
+    claimedCount: state.contracts.claimed.length
+  };
+
+  if (focusedContract !== undefined) {
+    const definition = contractDefinitionsById[focusedContract.id];
+
+    if (definition !== undefined) {
+      model.focusedContract = buildContractCardModel(
+        focusedContract,
+        definition
+      );
+    }
+  }
+
+  return model;
+}
+
+export function buildResearchPanelModel(
+  state: GameState,
+  researchDefinitions: readonly ResearchDefinition[]
+): ResearchPanelModel {
+  const cards = researchDefinitions.map((definition) =>
+    buildResearchCardModel(state, definition)
+  );
+  const focusedResearch =
+    cards.find((card) => card.status === "unlocked") ??
+    cards.find((card) => card.canUnlock) ??
+    cards.find((card) => card.status === "available") ??
+    cards.find((card) => card.status === "locked");
+  const model: ResearchPanelModel = {
+    availableCount: cards.filter((card) => card.status === "available").length,
+    lockedCount: cards.filter((card) => card.status === "locked").length,
+    unlockedCount: cards.filter((card) => card.status === "unlocked").length,
+    spentResearchPoints: state.research.spentResearchPoints,
+    cards
+  };
+
+  if (focusedResearch !== undefined) {
+    model.focusedResearch = focusedResearch;
   }
 
   return model;
@@ -197,6 +329,37 @@ function buildResourceMetric(
     value: state.resources.balances[resourceId],
     rate: state.resources.rates[resourceId]
   };
+}
+
+function buildLoadMetric(
+  state: GameState,
+  resourceId: "power" | "heat",
+  hasActiveBottleneck: boolean
+): LoadMetricModel {
+  const used = state.resources.usage[resourceId];
+  const capacity = state.resources.capacities[resourceId];
+  const pressurePercent =
+    resourceId === "heat"
+      ? state.resources.balances.heat
+      : calculatePressurePercent(used, capacity);
+
+  return {
+    resourceId,
+    label: formatResourceLabel(resourceId),
+    used,
+    capacity,
+    pressurePercent,
+    warning: hasActiveBottleneck || pressurePercent >= 80,
+    critical: pressurePercent > 100
+  };
+}
+
+function calculatePressurePercent(used: number, capacity: number): number {
+  if (capacity <= 0) {
+    return used > 0 ? 100 : 0;
+  }
+
+  return (used / capacity) * 100;
 }
 
 function findMainBottleneck(
@@ -331,6 +494,22 @@ function buildInspectorComputeModel(
   };
 }
 
+function buildInspectorLoadModel(
+  definition: NodeDefinition
+): InspectorLoadModel | undefined {
+  const powerUse = definition.baseStats.powerUse;
+  const heatOutput = definition.baseStats.heatOutput;
+
+  if (powerUse <= 0 && heatOutput <= 0) {
+    return undefined;
+  }
+
+  return {
+    powerUse,
+    heatOutput
+  };
+}
+
 function buildDefaultRecommendedAction(node: NodeInstance): string | undefined {
   return node.status === "running"
     ? "Keep this branch balanced and watch the next bottleneck."
@@ -365,6 +544,214 @@ export function formatStatusLabel(status: NodeStatus | BottleneckReason): string
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+function findFocusedContract(state: GameState): ContractRuntimeState | undefined {
+  return (
+    state.contracts.completed[0] ??
+    state.contracts.active[0] ??
+    state.contracts.claimed[0] ??
+    state.contracts.available[0]
+  );
+}
+
+function buildContractCardModel(
+  contract: ContractRuntimeState,
+  definition: ContractDefinition
+): ContractCardModel {
+  const progressCurrent = Math.min(
+    contract.currentProgress,
+    definition.requiredAmount
+  );
+
+  return {
+    id: contract.id,
+    title: definition.title,
+    description: definition.description,
+    status: contract.status,
+    statusLabel: formatContractStatusLabel(contract.status),
+    progressCurrent,
+    progressRequired: definition.requiredAmount,
+    progressPercent: calculateContractProgressPercent(
+      progressCurrent,
+      definition.requiredAmount
+    ),
+    requirementLabel: formatContractRequirement(definition),
+    rewardLabel: formatContractReward(definition),
+    canClaim: contract.status === "completed"
+  };
+}
+
+function calculateContractProgressPercent(
+  progressCurrent: number,
+  progressRequired: number
+): number {
+  if (progressRequired <= 0) {
+    return 100;
+  }
+
+  return Math.min(100, (progressCurrent / progressRequired) * 100);
+}
+
+function formatContractRequirement(definition: ContractDefinition): string {
+  if (definition.requirementType === "earn_money") {
+    return `Earn $${formatCompactNumber(definition.requiredAmount)}`;
+  }
+
+  return definition.requirementResourceId === undefined
+    ? `${formatCompactNumber(definition.requiredAmount)} units`
+    : `${formatCompactNumber(definition.requiredAmount)} ${formatResourceLabel(
+        definition.requirementResourceId
+      )}`;
+}
+
+function formatContractReward(definition: ContractDefinition): string {
+  const parts = [`$${formatCompactNumber(definition.rewardMoney)}`];
+
+  if ((definition.rewardResearch ?? 0) > 0) {
+    parts.push(`${formatCompactNumber(definition.rewardResearch ?? 0)} Research`);
+  }
+
+  return parts.join(" + ");
+}
+
+function formatContractStatusLabel(status: ContractStatus): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function buildResearchCardModel(
+  state: GameState,
+  definition: ResearchDefinition
+): ResearchCardModel {
+  const unlocked = state.research.unlockedResearchIds.includes(definition.id);
+  const prerequisitesMet = definition.prerequisiteResearchIds.every(
+    (researchId) => state.research.unlockedResearchIds.includes(researchId)
+  );
+  const status: ResearchStatus = unlocked
+    ? "unlocked"
+    : prerequisitesMet
+      ? "available"
+      : "locked";
+  const currentResearch = state.resources.balances.research;
+  const affordable = currentResearch >= definition.costResearch;
+  const lockedReason =
+    status === "locked"
+      ? formatResearchLockedReason(state, definition)
+      : undefined;
+  const model: ResearchCardModel = {
+    id: definition.id,
+    title: definition.title,
+    description: definition.description,
+    costResearch: definition.costResearch,
+    currentResearch,
+    status,
+    statusLabel: formatResearchStatusLabel(status),
+    effectLabel: formatResearchEffect(definition),
+    affordable,
+    canUnlock: status === "available" && affordable
+  };
+
+  if (lockedReason !== undefined) {
+    model.lockedReason = lockedReason;
+  }
+
+  return model;
+}
+
+function formatResearchLockedReason(
+  state: GameState,
+  definition: ResearchDefinition
+): string {
+  const missingPrerequisites = definition.prerequisiteResearchIds.filter(
+    (researchId) => !state.research.unlockedResearchIds.includes(researchId)
+  );
+
+  if (missingPrerequisites.length === 0) {
+    return "Locked.";
+  }
+
+  return `Requires ${missingPrerequisites
+    .map((researchId) => formatResearchIdLabel(researchId))
+    .join(", ")}.`;
+}
+
+function formatResearchEffect(definition: ResearchDefinition): string {
+  const targetLabel =
+    definition.targetNodeDefinitionId === undefined
+      ? ""
+      : `${formatResearchIdLabel(definition.targetNodeDefinitionId)} `;
+
+  switch (definition.effectType) {
+    case "node_compute_use_multiplier":
+      return `${targetLabel}compute use ${formatMultiplierReduction(
+        definition.effectValue
+      )}`;
+    case "node_heat_output_multiplier":
+      return `${targetLabel}heat output ${formatMultiplierReduction(
+        definition.effectValue
+      )}`;
+    case "node_output_multiplier":
+      return `${targetLabel}${formatResourceTarget(
+        definition.targetResourceId
+      )} output ${formatMultiplierIncrease(definition.effectValue)}`;
+    case "node_power_use_multiplier":
+      return `${targetLabel}power use ${formatMultiplierReduction(
+        definition.effectValue
+      )}`;
+    case "node_throughput_multiplier":
+      return `${targetLabel}throughput ${formatMultiplierIncrease(
+        definition.effectValue
+      )}`;
+    case "global_power_capacity_add":
+      return `+${formatCompactNumber(definition.effectValue)} power capacity`;
+    case "global_heat_capacity_add":
+      return `+${formatCompactNumber(definition.effectValue)} heat safe capacity`;
+  }
+}
+
+function formatResearchStatusLabel(status: ResearchStatus): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function formatResourceTarget(resourceId: ResourceId | undefined): string {
+  return resourceId === undefined ? "resource" : formatResourceLabel(resourceId);
+}
+
+function formatMultiplierReduction(value: number): string {
+  return `-${formatCompactNumber((1 - value) * 100)}%`;
+}
+
+function formatMultiplierIncrease(value: number): string {
+  return `+${formatCompactNumber((value - 1) * 100)}%`;
+}
+
+function formatResearchIdLabel(researchId: string): string {
+  return researchId
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function formatCompactNumber(value: number): string {
+  const absValue = Math.abs(value);
+
+  if (absValue >= 1_000_000) {
+    return `${trimCompactNumber(value / 1_000_000)}M`;
+  }
+
+  if (absValue >= 1_000) {
+    return `${trimCompactNumber(value / 1_000)}K`;
+  }
+
+  return trimCompactNumber(value);
+}
+
+function trimCompactNumber(value: number): string {
+  const roundedValue = Math.round(value * 10) / 10;
+
+  return Number.isInteger(roundedValue)
+    ? `${roundedValue}`
+    : roundedValue.toFixed(1);
 }
 
 function formatCategoryLabel(category: string): string {

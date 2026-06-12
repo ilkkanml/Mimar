@@ -3,6 +3,8 @@ import {
   createZeroResourceMap,
   GAME_SCHEMA_VERSION
 } from "../state/initialState";
+import { normalizeContractState } from "../state/contracts";
+import { normalizeResearchState } from "../state/research";
 
 import type {
   ContractState,
@@ -147,27 +149,11 @@ function normalizeNodeForSave(node: NodeInstance): NodeInstance {
 }
 
 function normalizeResearch(research: ResearchState): ResearchState {
-  const normalized: ResearchState = {
-    purchasedResearchIds: [...research.purchasedResearchIds],
-    availableResearchIds: [...research.availableResearchIds]
-  };
-
-  if (research.queuedResearchId !== undefined) {
-    normalized.queuedResearchId = research.queuedResearchId;
-  }
-
-  return normalized;
+  return normalizeResearchState(research);
 }
 
 function normalizeContracts(contracts: ContractState): ContractState {
-  return {
-    active: contracts.active.map((contract) => ({
-      ...contract,
-      progress: cloneResourceMap(contract.progress)
-    })),
-    completedIds: [...contracts.completedIds],
-    failedIds: [...contracts.failedIds]
-  };
+  return normalizeContractState(contracts);
 }
 
 function normalizeSideOps(sideOps: SideOperationState): SideOperationState {

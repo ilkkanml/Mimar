@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+import { contractDefinitionsById } from "../data/contracts";
 import { nodeDefinitionsById } from "../data/nodeDefinitions";
+import { researchDefinitionsById } from "../data/research";
 import { addNode, connectNodesIfValid, selectNode } from "../state/actions";
-import { createInitialGameState, createZeroResourceMap } from "../state/initialState";
+import { claimContractReward } from "../state/contractActions";
+import { createContractRuntimeState } from "../state/contracts";
+import {
+  createInitialGameState,
+  createZeroResourceMap
+} from "../state/initialState";
+import { unlockResearch } from "../state/researchActions";
 import { tickGameState } from "../simulation/tick";
 import { loadGameFromStorage, parseSaveGame } from "./loadGame";
 import { saveGameToStorage, serializeSaveGame } from "./saveGame";
@@ -74,6 +82,94 @@ describe("save/load v0", () => {
         graph.state.graph.edges
       );
     }
+  });
+
+  it("persists contract completion and claimed reward state", () => {
+    const completedState = createCompletedContractState(
+      "starter_intake_check"
+    );
+    const claimResult = claimContractReward(
+      completedState,
+      contractDefinitionsById,
+      "starter_intake_check"
+    );
+
+    expect(claimResult.ok).toBe(true);
+    if (!claimResult.ok) {
+      return;
+    }
+
+    const saveGame = createSaveGame(
+      claimResult.state,
+      "2026-06-11T12:00:00.000Z"
+    );
+    const loadResult = parseSaveGame(serializeSaveGame(saveGame));
+
+    expect(loadResult.ok).toBe(true);
+    if (!loadResult.ok) {
+      return;
+    }
+
+    expect(loadResult.saveGame.gameState.contracts.claimed).toEqual([
+      {
+        id: "starter_intake_check",
+        currentProgress: 25,
+        status: "claimed"
+      }
+    ]);
+    expect(loadResult.saveGame.gameState.contracts.completed).toEqual([]);
+    expect(loadResult.saveGame.gameState.resources.balances.money).toBe(
+      getStarterIntakeDefinition().rewardMoney
+    );
+    expect(loadResult.saveGame.gameState.resources.balances.research).toBe(
+      getStarterIntakeDefinition().rewardResearch
+    );
+  });
+
+  it("persists unlocked research state and spent research points", () => {
+    const initialState = createInitialGameState("2026-06-11T00:00:00.000Z");
+    const state = {
+      ...initialState,
+      resources: {
+        ...initialState.resources,
+        balances: {
+          ...initialState.resources.balances,
+          research: 6
+        }
+      }
+    } satisfies GameState;
+    const unlockResult = unlockResearch(
+      state,
+      researchDefinitionsById,
+      "parser_optimization"
+    );
+
+    expect(unlockResult.ok).toBe(true);
+    if (!unlockResult.ok) {
+      return;
+    }
+
+    const saveGame = createSaveGame(
+      unlockResult.state,
+      "2026-06-11T12:00:00.000Z"
+    );
+    const loadResult = parseSaveGame(serializeSaveGame(saveGame));
+
+    expect(loadResult.ok).toBe(true);
+    if (!loadResult.ok) {
+      return;
+    }
+
+    expect(loadResult.saveGame.gameState.research).toEqual({
+      availableResearchIds: [
+        "cooling_discipline",
+        "cleaner_efficiency",
+        "upload_compression"
+      ],
+      unlockedResearchIds: ["parser_optimization"],
+      spentResearchPoints: 5
+    });
+    expect(loadResult.saveGame.gameState.resources.balances.research).toBe(1);
   });
 
   it("returns a safe error for missing or broken saves", () => {
@@ -161,4 +257,37 @@ class MemoryStorage implements GameLoadStorage, GameSaveStorage {
   setItem(key: string, value: string): void {
     this.values.set(key, value);
   }
+}
+
+function createCompletedContractState(
+  contractId: "starter_intake_check"
+): GameState {
+  const state = createInitialGameState("2026-06-11T00:00:00.000Z");
+  const definition = getStarterIntakeDefinition();
+
+  return {
+    ...state,
+    contracts: {
+      available: state.contracts.available,
+      active: [],
+      completed: [
+        createContractRuntimeState(
+          contractId,
+          "completed",
+          definition.requiredAmount
+        )
+      ],
+      claimed: []
+    }
+  };
+}
+
+function getStarterIntakeDefinition() {
+  const definition = contractDefinitionsById.starter_intake_check;
+
+  if (definition === undefined) {
+    throw new Error("Missing starter intake contract definition.");
+  }
+
+  return definition;
 }

@@ -42,11 +42,36 @@ export const NODE_CATEGORIES = [
 ] as const;
 
 export const PORT_DIRECTIONS = ["input", "output"] as const;
+export const CONTRACT_REQUIREMENT_TYPES = [
+  "produce_resource",
+  "earn_money"
+] as const;
+export const CONTRACT_STATUSES = [
+  "available",
+  "active",
+  "completed",
+  "claimed"
+] as const;
+export const RESEARCH_STATUSES = ["locked", "available", "unlocked"] as const;
+export const RESEARCH_EFFECT_TYPES = [
+  "node_throughput_multiplier",
+  "node_compute_use_multiplier",
+  "node_power_use_multiplier",
+  "node_heat_output_multiplier",
+  "node_output_multiplier",
+  "global_power_capacity_add",
+  "global_heat_capacity_add"
+] as const;
 
 export type ResourceId = (typeof RESOURCE_IDS)[number];
 export type M1ResourceId = (typeof M1_RESOURCE_IDS)[number];
 export type NodeCategory = (typeof NODE_CATEGORIES)[number];
 export type PortDirection = (typeof PORT_DIRECTIONS)[number];
+export type ContractRequirementType =
+  (typeof CONTRACT_REQUIREMENT_TYPES)[number];
+export type ContractStatus = (typeof CONTRACT_STATUSES)[number];
+export type ResearchStatus = (typeof RESEARCH_STATUSES)[number];
+export type ResearchEffectType = (typeof RESEARCH_EFFECT_TYPES)[number];
 
 export type GameSchemaVersion = 0;
 export type NodeId = string;
@@ -78,7 +103,9 @@ export type NodeStats = {
   computeProduced: number;
   computeUsed: number;
   powerUse: number;
+  powerCapacity?: number;
   heatOutput: number;
+  coolingCapacity?: number;
   storageCapacity: number;
   qualityBonus?: number;
   errorReduction?: number;
@@ -90,7 +117,9 @@ export type NodeUpgradeScaling = {
   computeProducedMultiplierPerLevel?: number;
   computeUseMultiplierPerLevel?: number;
   powerUseMultiplierPerLevel?: number;
+  powerCapacityMultiplierPerLevel?: number;
   heatOutputMultiplierPerLevel?: number;
+  coolingCapacityMultiplierPerLevel?: number;
   qualityBonusPerLevel?: number;
   researchMultiplierPerLevel?: number;
   valueMultiplierPerLevel?: number;
@@ -189,22 +218,45 @@ export type GameMetaState = {
 };
 
 export type ResearchState = {
-  purchasedResearchIds: ResearchId[];
   availableResearchIds: ResearchId[];
-  queuedResearchId?: ResearchId;
+  unlockedResearchIds: ResearchId[];
+  spentResearchPoints: number;
 };
 
-export type ActiveContract = {
-  definitionId: ContractDefinitionId;
-  acceptedAt: string;
-  progress: ResourceMap;
-  status: "active" | "completed" | "failed";
+export type ResearchDefinition = {
+  id: ResearchId;
+  title: string;
+  description: string;
+  costResearch: number;
+  prerequisiteResearchIds: readonly ResearchId[];
+  effectType: ResearchEffectType;
+  effectValue: number;
+  targetNodeDefinitionId?: NodeDefinitionId;
+  targetResourceId?: ResourceId;
+};
+
+export type ContractDefinition = {
+  id: ContractDefinitionId;
+  title: string;
+  description: string;
+  requirementType: ContractRequirementType;
+  requirementResourceId?: ResourceId;
+  requiredAmount: number;
+  rewardMoney: number;
+  rewardResearch?: number;
+};
+
+export type ContractRuntimeState = {
+  id: ContractDefinitionId;
+  currentProgress: number;
+  status: ContractStatus;
 };
 
 export type ContractState = {
-  active: ActiveContract[];
-  completedIds: ContractDefinitionId[];
-  failedIds: ContractDefinitionId[];
+  available: ContractRuntimeState[];
+  active: ContractRuntimeState[];
+  completed: ContractRuntimeState[];
+  claimed: ContractRuntimeState[];
 };
 
 export type EmptySideOperationModuleState = Record<string, never>;

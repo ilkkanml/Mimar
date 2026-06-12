@@ -1,4 +1,6 @@
 import { RESOURCE_IDS } from "./types";
+import { createInitialContractState } from "./contracts";
+import { createInitialResearchState } from "./research";
 
 import type {
   FullResourceMap,
@@ -43,15 +45,8 @@ export function createInitialGameState(
       selectedEdgeIds: []
     },
     resources: createInitialResourceState(),
-    research: {
-      purchasedResearchIds: [],
-      availableResearchIds: []
-    },
-    contracts: {
-      active: [],
-      completedIds: [],
-      failedIds: []
-    },
+    research: createInitialResearchState(),
+    contracts: createInitialContractState(),
     sideOps: {
       crypto: {},
       cyber: {},
