@@ -518,11 +518,18 @@ Status: Done
 ## M2-007 - Better bottleneck messages v0
 
 Priority: P1
-Status: Todo
+Status: Done
 
 - Refine existing bottleneck reason text into clearer quick fixes across Resource Bar, Inspector, and tooltips.
 - Keep messages derived from current runtime reasons; do not add analytics dashboards, timeline UI, or new simulation systems.
 - Preserve the existing visual direction and avoid new panels unless a tiny text treatment is already supported by current components.
+
+### Completion notes
+
+- M2-007 completed with a deterministic bottleneck summary model that adds severity, short label, clear reason text, affected node id, metric summary, and recommended action.
+- Resource Bar, Inspector, and node tooltip now consume the shared bottleneck model instead of hardcoding bottleneck prose in React components.
+- Covered compute-limited, power-limited, heat-pressure, missing-input, affected-node, severity, recommendation, UI model output, and no-bottleneck behavior in panel model tests.
+- Save schema version remains `0`; bottleneck messages are derived runtime/UI state and are not persisted.
 
 ---
 

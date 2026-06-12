@@ -470,3 +470,25 @@ Consequences:
 - Canvas nodes show the tooltip on hover and keyboard focus while ports, dragging, Inspector, and command strip behavior remain unchanged.
 - Save schema version remains `0`; tooltip state is runtime-only UI state.
 - Full analytics dashboards, timeline UI, new node palette, side operations, market, blueprint, staging, campaign, monetization, and prestige/reset systems remain out of scope.
+
+---
+
+## 2026-06-12 - M2 bottleneck messages use shared runtime-derived summaries
+
+Status: Accepted
+
+Decision:
+
+M2-007 bottleneck messaging uses a shared deterministic `BottleneckSummaryModel` derived from existing game state, effective node definitions, and simulation runtime outputs. Each summary carries the affected node id, severity, short label, clear reason text, optional metric summary, and recommended action. Resource Bar, Inspector, and node tooltip render this shared model instead of embedding bottleneck prose directly in React components.
+
+Context:
+
+The user scoped M2-007 to clearer bottleneck messages only. Existing simulation already emits bottleneck reasons for compute, power, heat, and missing input; the gap was player-facing explanation and recommended action across existing UI surfaces. The same prompt excluded new simulation systems, notification centers, tutorials, dashboards, timeline UI, new visual direction, and new node placement surfaces.
+
+Consequences:
+
+- Bottleneck messages remain read-only derived UI state and are not saved.
+- `schemaVersion: 0` remains unchanged.
+- Compute-limited, power-limited, heat-pressure, missing-input, downstream/storage/network placeholder reasons, severity ranking, metric summaries, and recommendations are testable outside React.
+- Resource Bar warning copy, Inspector reason cards, and tooltip bottleneck blocks stay aligned because they consume the same model.
+- Side Operations, crypto/cyber systems, Blueprint Library, Staging Room, Market, Campaign systems, monetization, prestige/reset, tutorial, notification center, and new visual direction remain out of scope.

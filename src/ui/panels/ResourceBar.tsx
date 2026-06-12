@@ -31,10 +31,16 @@ export function ResourceBar({ model }: ResourceBarProps) {
       </div>
 
       {model.warning === undefined ? null : (
-        <div className="resource-bar__warning" role="status">
+        <div
+          className={[
+            "resource-bar__warning",
+            `resource-bar__warning--${model.warning.severity}`
+          ].join(" ")}
+          role="status"
+        >
           <span className="resource-bar__warning-label">Bottleneck</span>
           <span className="resource-bar__warning-text">
-            {model.warning.nodeName}: {model.warning.reasonLabel}
+            {model.warning.nodeName}: {model.warning.reasonText}
           </span>
         </div>
       )}

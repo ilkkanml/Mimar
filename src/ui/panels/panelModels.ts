@@ -48,12 +48,18 @@ export type LoadMetricModel = {
   critical: boolean;
 };
 
+export type BottleneckSeverity = "info" | "warning" | "critical";
+
 export type BottleneckSummaryModel = {
   nodeId: NodeId;
   nodeName: string;
   reason: BottleneckReason;
+  severity: BottleneckSeverity;
+  shortLabel: string;
   reasonLabel: string;
+  reasonText: string;
   summary: string;
+  metricSummary?: string;
   recommendedAction: string;
 };
 
@@ -269,7 +275,12 @@ export function buildInspectorModel(
   const bottleneck =
     node.runtime.bottleneckReason === undefined
       ? undefined
-      : buildBottleneckSummary(node, definition, node.runtime.bottleneckReason);
+      : buildBottleneckSummary(
+          state,
+          node,
+          definition,
+          node.runtime.bottleneckReason
+        );
 
   const model: NodeInspectorModel = {
     kind: "node",
@@ -341,7 +352,12 @@ export function buildNodeTooltipModel(
   const bottleneck =
     node.runtime.bottleneckReason === undefined
       ? undefined
-      : buildBottleneckSummary(node, definition, node.runtime.bottleneckReason);
+      : buildBottleneckSummary(
+          state,
+          node,
+          definition,
+          node.runtime.bottleneckReason
+        );
   const compute = buildInspectorComputeModel(node, definition);
   const load = buildInspectorLoadModel(definition);
   const upgrade = buildUpgradePreviewModel(state, node, baseDefinition);
@@ -523,94 +539,343 @@ function findMainBottleneck(
 ): BottleneckSummaryModel | undefined {
   const summaries = Object.values(state.graph.nodes).flatMap((node) => {
     const reason = node.runtime.bottleneckReason;
-    const definition = nodeDefinitionsById[node.definitionId];
+    const definition =
+      nodeDefinitionsById[node.definitionId] === undefined
+        ? undefined
+        : buildEffectiveNodeDefinitionForInspector(
+            state,
+            node,
+            nodeDefinitionsById
+          );
 
     if (reason === undefined || definition === undefined) {
       return [];
     }
 
-    return [buildBottleneckSummary(node, definition, reason)];
+    return [buildBottleneckSummary(state, node, definition, reason)];
   });
 
   return summaries.sort(
     (left, right) =>
       BOTTLENECK_PRIORITY[left.reason] - BOTTLENECK_PRIORITY[right.reason] ||
+      compareBottleneckSeverity(left.severity, right.severity) ||
       left.nodeName.localeCompare(right.nodeName)
   )[0];
 }
 
+function compareBottleneckSeverity(
+  left: BottleneckSeverity,
+  right: BottleneckSeverity
+): number {
+  return severityRank(left) - severityRank(right);
+}
+
+function severityRank(severity: BottleneckSeverity): number {
+  switch (severity) {
+    case "critical":
+      return 0;
+    case "warning":
+      return 1;
+    case "info":
+      return 2;
+  }
+}
+
 function buildBottleneckSummary(
+  state: GameState,
   node: NodeInstance,
   definition: NodeDefinition,
   reason: BottleneckReason
 ): BottleneckSummaryModel {
-  const reasonLabel = formatStatusLabel(reason);
-
   switch (reason) {
     case "compute_limited":
-      return {
-        nodeId: node.id,
-        nodeName: definition.name,
-        reason,
-        reasonLabel,
-        summary: `${definition.name} needs more compute than the grid can supply.`,
-        recommendedAction: "Add CPU Rack or reduce competing compute demand."
-      };
+      return buildComputeBottleneckSummary(state, node, definition, reason);
     case "input_starved":
-      return {
-        nodeId: node.id,
-        nodeName: definition.name,
-        reason,
-        reasonLabel,
-        summary: `${definition.name} is waiting for input flow.`,
-        recommendedAction: "Connect the required upstream resource."
-      };
+      return buildInputBottleneckSummary(node, definition, reason);
     case "output_blocked":
-      return {
-        nodeId: node.id,
-        nodeName: definition.name,
+      return buildThroughputBottleneckSummary(
+        node,
+        definition,
         reason,
-        reasonLabel,
-        summary: `${definition.name} cannot move output fast enough.`,
-        recommendedAction: "Add another output route or increase downstream capacity."
-      };
+        "Output Blocked",
+        `${definition.name} is producing faster than downstream flow can accept.`,
+        "Add another output route or increase downstream capacity."
+      );
     case "power_limited":
-      return {
-        nodeId: node.id,
-        nodeName: definition.name,
-        reason,
-        reasonLabel,
-        summary: `${definition.name} is held back by power capacity.`,
-        recommendedAction: "Increase power capacity before expanding this branch."
-      };
+      return buildPowerBottleneckSummary(state, node, definition, reason);
     case "heat_throttled":
-      return {
-        nodeId: node.id,
-        nodeName: definition.name,
-        reason,
-        reasonLabel,
-        summary: `${definition.name} is throttled by heat.`,
-        recommendedAction: "Add cooling capacity or reduce load."
-      };
+      return buildHeatBottleneckSummary(state, node, definition, reason);
     case "storage_full":
-      return {
-        nodeId: node.id,
-        nodeName: definition.name,
+      return buildThroughputBottleneckSummary(
+        node,
+        definition,
         reason,
-        reasonLabel,
-        summary: `${definition.name} has no room for more buffered data.`,
-        recommendedAction: "Add storage or move data downstream faster."
-      };
+        "Storage Full",
+        `${definition.name} has no room for more buffered data.`,
+        "Add storage capacity or move data downstream faster."
+      );
     case "network_limited":
-      return {
-        nodeId: node.id,
-        nodeName: definition.name,
+      return buildThroughputBottleneckSummary(
+        node,
+        definition,
         reason,
-        reasonLabel,
-        summary: `${definition.name} is waiting on network capacity.`,
-        recommendedAction: "Add bandwidth capacity or split traffic."
-      };
+        "Network Limited",
+        `${definition.name} is waiting on network capacity.`,
+        "Add bandwidth capacity or split traffic across another route."
+      );
   }
+}
+
+function buildComputeBottleneckSummary(
+  state: GameState,
+  node: NodeInstance,
+  definition: NodeDefinition,
+  reason: BottleneckReason
+): BottleneckSummaryModel {
+  const required = definition.baseStats.computeUsed;
+  const available = node.runtime.inputRate.compute ?? 0;
+  const gridCapacity = state.resources.capacities.compute;
+  const reasonText =
+    required > 0
+      ? `${definition.name} needs ${formatRate(required)} compute but only ${formatRate(
+          available
+        )} is available.`
+      : `${definition.name} is waiting for compute capacity.`;
+
+  return createBottleneckSummary({
+    node,
+    definition,
+    reason,
+    shortLabel: "Compute Limited",
+    reasonText,
+    metricSummary: `Compute: ${formatRate(available)} available / ${formatRate(
+      required
+    )} needed. Grid capacity: ${formatRate(gridCapacity)}.`,
+    recommendedAction:
+      "Add CPU Rack, unlock compute-efficiency research, or reduce competing compute demand.",
+    severity: getNodeConstraintSeverity(node, available, required)
+  });
+}
+
+function buildInputBottleneckSummary(
+  node: NodeInstance,
+  definition: NodeDefinition,
+  reason: BottleneckReason
+): BottleneckSummaryModel {
+  const starvedInput = findMostStarvedInput(definition, node);
+  const reasonText =
+    starvedInput === undefined
+      ? `${definition.name} is waiting for input flow.`
+      : `${definition.name} needs ${formatRate(
+          starvedInput.required
+        )} ${starvedInput.label} but is receiving ${formatRate(
+          starvedInput.available
+        )}.`;
+  const metricSummary =
+    starvedInput === undefined
+      ? undefined
+      : `${starvedInput.label}: ${formatRate(
+          starvedInput.available
+        )} received / ${formatRate(starvedInput.required)} needed.`;
+
+  return createBottleneckSummary({
+    node,
+    definition,
+    reason,
+    shortLabel: "Input Missing",
+    reasonText,
+    metricSummary,
+    recommendedAction:
+      starvedInput === undefined
+        ? "Connect the required upstream resource or increase upstream throughput."
+        : `Connect an upstream ${starvedInput.label} source or increase upstream throughput.`,
+    severity: getNodeConstraintSeverity(
+      node,
+      starvedInput?.available ?? 0,
+      starvedInput?.required ?? 1
+    )
+  });
+}
+
+function buildPowerBottleneckSummary(
+  state: GameState,
+  node: NodeInstance,
+  definition: NodeDefinition,
+  reason: BottleneckReason
+): BottleneckSummaryModel {
+  const used = state.resources.usage.power;
+  const capacity = state.resources.capacities.power;
+  const reasonText = `${definition.name} is reduced because the system is drawing ${formatCompactNumber(
+    used
+  )} power against ${formatCompactNumber(capacity)} capacity.`;
+
+  return createBottleneckSummary({
+    node,
+    definition,
+    reason,
+    shortLabel: "Power Limited",
+    reasonText,
+    metricSummary: `Power load: ${formatCompactNumber(
+      used
+    )}/${formatCompactNumber(capacity)} capacity.`,
+    recommendedAction:
+      "Add power capacity, unlock power research, or upgrade lower-power nodes before expanding this branch.",
+    severity: getLoadConstraintSeverity(node, used, capacity)
+  });
+}
+
+function buildHeatBottleneckSummary(
+  state: GameState,
+  node: NodeInstance,
+  definition: NodeDefinition,
+  reason: BottleneckReason
+): BottleneckSummaryModel {
+  const generated = state.resources.usage.heat;
+  const safeCapacity = state.resources.capacities.heat;
+  const pressurePercent = state.resources.balances.heat;
+  const reasonText = `Heat pressure is ${formatCompactNumber(
+    pressurePercent
+  )}% and is reducing ${definition.name} throughput.`;
+
+  return createBottleneckSummary({
+    node,
+    definition,
+    reason,
+    shortLabel: "Heat Pressure High",
+    reasonText,
+    metricSummary: `Heat: ${formatCompactNumber(
+      generated
+    )}/${formatCompactNumber(safeCapacity)} safe capacity.`,
+    recommendedAction:
+      "Unlock cooling research or reduce heat output before expanding this branch.",
+    severity: getLoadConstraintSeverity(node, generated, safeCapacity)
+  });
+}
+
+function buildThroughputBottleneckSummary(
+  node: NodeInstance,
+  definition: NodeDefinition,
+  reason: BottleneckReason,
+  shortLabel: string,
+  reasonText: string,
+  recommendedAction: string
+): BottleneckSummaryModel {
+  return createBottleneckSummary({
+    node,
+    definition,
+    reason,
+    shortLabel,
+    reasonText,
+    metricSummary: `Throughput: ${formatCompactNumber(
+      node.runtime.effectiveThroughput * 100
+    )}% effective.`,
+    recommendedAction,
+    severity:
+      node.runtime.effectiveThroughput <= 0 ? "critical" : "warning"
+  });
+}
+
+type BottleneckSummaryInput = {
+  node: NodeInstance;
+  definition: NodeDefinition;
+  reason: BottleneckReason;
+  shortLabel: string;
+  reasonText: string;
+  metricSummary: string | undefined;
+  recommendedAction: string;
+  severity: BottleneckSeverity;
+};
+
+function createBottleneckSummary({
+  node,
+  definition,
+  reason,
+  shortLabel,
+  reasonText,
+  metricSummary,
+  recommendedAction,
+  severity
+}: BottleneckSummaryInput): BottleneckSummaryModel {
+  const model: BottleneckSummaryModel = {
+    nodeId: node.id,
+    nodeName: definition.name,
+    reason,
+    severity,
+    shortLabel,
+    reasonLabel: shortLabel,
+    reasonText,
+    summary: reasonText,
+    recommendedAction
+  };
+
+  if (metricSummary !== undefined) {
+    model.metricSummary = metricSummary;
+  }
+
+  return model;
+}
+
+function getNodeConstraintSeverity(
+  node: NodeInstance,
+  available: number,
+  required: number
+): BottleneckSeverity {
+  if (required > 0 && available <= 0) {
+    return "critical";
+  }
+
+  return node.runtime.effectiveThroughput <= 0 ? "critical" : "warning";
+}
+
+function getLoadConstraintSeverity(
+  node: NodeInstance,
+  used: number,
+  capacity: number
+): BottleneckSeverity {
+  if (capacity <= 0 && used > 0) {
+    return "critical";
+  }
+
+  if (capacity > 0 && used > capacity) {
+    return "critical";
+  }
+
+  return node.runtime.effectiveThroughput <= 0 ? "critical" : "warning";
+}
+
+type StarvedInputMetric = {
+  resourceId: ResourceId;
+  label: string;
+  required: number;
+  available: number;
+};
+
+function findMostStarvedInput(
+  definition: NodeDefinition,
+  node: NodeInstance
+): StarvedInputMetric | undefined {
+  return Object.entries(definition.baseStats.consumes)
+    .filter(
+      ([resourceId, required]) =>
+        resourceId !== "compute" && required > 0
+    )
+    .map(([resourceId, required]) => ({
+      resourceId: resourceId as ResourceId,
+      label: formatResourceLabel(resourceId as ResourceId),
+      required,
+      available: node.runtime.inputRate[resourceId as ResourceId] ?? 0
+    }))
+    .filter((metric) => metric.available < metric.required)
+    .sort((left, right) => {
+      const leftGap = left.required - left.available;
+      const rightGap = right.required - right.available;
+
+      return rightGap - leftGap || left.label.localeCompare(right.label);
+    })[0];
+}
+
+function formatRate(value: number): string {
+  return `${formatCompactNumber(value)}/s`;
 }
 
 function buildFlowRates(

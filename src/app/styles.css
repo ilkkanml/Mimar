@@ -217,12 +217,22 @@ button {
   box-shadow: var(--glow-warning);
 }
 
+.resource-bar__warning--critical {
+  border-color: rgba(255, 92, 108, 0.72);
+  background: rgba(255, 92, 108, 0.1);
+  box-shadow: 0 0 18px rgba(255, 92, 108, 0.26);
+}
+
 .resource-bar__warning-label {
   flex: 0 0 auto;
   color: var(--status-warning);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.resource-bar__warning--critical .resource-bar__warning-label {
+  color: var(--status-critical);
 }
 
 .resource-bar__warning-text {
@@ -521,9 +531,18 @@ button {
   background: rgba(246, 169, 76, 0.08);
 }
 
+.node-tooltip__bottleneck--critical {
+  border-color: rgba(255, 92, 108, 0.58);
+  background: rgba(255, 92, 108, 0.08);
+}
+
 .node-tooltip__bottleneck strong {
   color: var(--status-warning);
   font-size: 11px;
+}
+
+.node-tooltip__bottleneck--critical strong {
+  color: var(--status-critical);
 }
 
 .node-tooltip__bottleneck p {
@@ -531,6 +550,10 @@ button {
   color: var(--text-secondary);
   font-size: 11px;
   line-height: 1.35;
+}
+
+.node-tooltip__bottleneck .node-tooltip__bottleneck-action {
+  color: var(--text-primary);
 }
 
 .node-tooltip__upgrade {
@@ -804,9 +827,18 @@ button {
   background: rgba(246, 169, 76, 0.08);
 }
 
+.bottleneck-card--critical {
+  border-color: rgba(255, 92, 108, 0.58);
+  background: rgba(255, 92, 108, 0.08);
+}
+
 .bottleneck-card strong {
   color: var(--status-warning);
   font-size: 12px;
+}
+
+.bottleneck-card--critical strong {
+  color: var(--status-critical);
 }
 
 .bottleneck-card p {
@@ -814,6 +846,17 @@ button {
   color: var(--text-secondary);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.bottleneck-card .bottleneck-card__metric {
+  font-family:
+    "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas,
+    monospace;
+  font-size: 12px;
+}
+
+.bottleneck-card .bottleneck-card__action {
+  color: var(--text-primary);
 }
 
 .contract-panel,

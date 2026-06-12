@@ -79,9 +79,20 @@ export function NodeTooltip({
       ) : null}
 
       {model.bottleneck !== undefined ? (
-        <div className="node-tooltip__bottleneck">
+        <div
+          className={[
+            "node-tooltip__bottleneck",
+            `node-tooltip__bottleneck--${model.bottleneck.severity}`
+          ].join(" ")}
+        >
           <strong>{model.bottleneck.reasonLabel}</strong>
           <p>{model.bottleneck.summary}</p>
+          {model.bottleneck.metricSummary === undefined ? null : (
+            <p>{model.bottleneck.metricSummary}</p>
+          )}
+          <p className="node-tooltip__bottleneck-action">
+            {model.bottleneck.recommendedAction}
+          </p>
         </div>
       ) : null}
 

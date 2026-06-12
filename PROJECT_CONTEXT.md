@@ -82,7 +82,8 @@ Oyuncu canvas üzerinde node'lar yerleştirir, bağlantılar kurar, veri akış�
 - M2-004 Buy Max and upgrade scaling completed: deterministic node level upgrades, Upgrade/Buy Max actions, simulation scaling, Inspector controls, save/load persistence, and test coverage were added.
 - M2-005 Undo/redo v0 completed: bounded history model, undo/redo actions, tracked graph/upgrade/research/contract user actions, bottom strip controls, non-persisted history stacks, and test coverage were added.
 - M2-006 Node tooltip metrics v0 completed: deterministic tooltip model, hover/focus canvas tooltip UI, runtime metrics, upgrade/research-derived values, bottleneck summaries, and test coverage were added without changing save schema.
-- Siradaki onerilen hedef: M2-007 Better bottleneck messages v0.
+- M2-007 Better bottleneck messages v0 completed: deterministic bottleneck message model now supplies severity, reason, recommendation, affected node id, and metric summary to the Resource Bar, Inspector, and node tooltip without changing save schema.
+- Siradaki onerilen hedef: M2-008 / next backlog item after user approval.
 
 ## İlk milestone hedefi — M1 Vertical Prototype
 

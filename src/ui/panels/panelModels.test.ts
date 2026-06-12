@@ -19,7 +19,7 @@ import {
   buildResourceBarModel
 } from "./panelModels";
 
-import type { GameState, NodeId } from "../../game/state/types";
+import type { GameState, NodeDefinition, NodeId } from "../../game/state/types";
 
 describe("panel view models", () => {
   it("summarizes resource bar values and compute bottlenecks from simulation state", () => {
@@ -47,9 +47,16 @@ describe("panel view models", () => {
       warning: false
     });
     expect(model.warning).toMatchObject({
+      nodeId: graph.parserId,
       nodeName: "Parser",
       reason: "compute_limited",
-      recommendedAction: "Add CPU Rack or reduce competing compute demand."
+      severity: "critical",
+      reasonLabel: "Compute Limited",
+      reasonText: "Parser needs 2/s compute but only 0/s is available.",
+      metricSummary:
+        "Compute: 0/s available / 2/s needed. Grid capacity: 0/s.",
+      recommendedAction:
+        "Add CPU Rack, unlock compute-efficiency research, or reduce competing compute demand."
     });
   });
 
@@ -103,8 +110,14 @@ describe("panel view models", () => {
       heatOutput: 1
     });
     expect(model.bottleneck?.reason).toBe("compute_limited");
+    expect(model.bottleneck).toMatchObject({
+      nodeId: graph.parserId,
+      severity: "critical",
+      metricSummary:
+        "Compute: 0/s available / 2/s needed. Grid capacity: 0/s."
+    });
     expect(model.recommendedAction).toBe(
-      "Add CPU Rack or reduce competing compute demand."
+      "Add CPU Rack, unlock compute-efficiency research, or reduce competing compute demand."
     );
   });
 
@@ -229,9 +242,127 @@ describe("panel view models", () => {
       bottleneck: {
         reason: "compute_limited",
         reasonLabel: "Compute Limited",
-        recommendedAction: "Add CPU Rack or reduce competing compute demand."
+        severity: "critical",
+        reasonText: "Parser needs 2/s compute but only 0/s is available.",
+        metricSummary:
+          "Compute: 0/s available / 2/s needed. Grid capacity: 0/s.",
+        recommendedAction:
+          "Add CPU Rack, unlock compute-efficiency research, or reduce competing compute demand."
       }
     });
+  });
+
+  it("builds a power bottleneck message with severity and recommendation", () => {
+    const definition = createTestNodeDefinition({
+      id: "test_power_hog",
+      name: "Power Test Load",
+      powerUse: 30,
+      heatOutput: 0
+    });
+    const definitionsById = {
+      ...nodeDefinitionsById,
+      [definition.id]: definition
+    };
+    const graph = createSingleNodeGraph(definition);
+    const tickedState = tickGameState(graph.state, definitionsById);
+
+    const resourceBar = buildResourceBarModel(tickedState, definitionsById);
+    const tooltip = buildNodeTooltipModel(
+      tickedState,
+      definitionsById,
+      graph.nodeId
+    );
+
+    expect(resourceBar.warning).toMatchObject({
+      nodeId: graph.nodeId,
+      nodeName: "Power Test Load",
+      reason: "power_limited",
+      severity: "critical",
+      reasonLabel: "Power Limited",
+      reasonText:
+        "Power Test Load is reduced because the system is drawing 30 power against 20 capacity.",
+      metricSummary: "Power load: 30/20 capacity.",
+      recommendedAction:
+        "Add power capacity, unlock power research, or upgrade lower-power nodes before expanding this branch."
+    });
+    expect(tooltip?.bottleneck?.recommendedAction).toBe(
+      resourceBar.warning?.recommendedAction
+    );
+  });
+
+  it("builds a heat bottleneck message from heat pressure", () => {
+    const definition = createTestNodeDefinition({
+      id: "test_heat_hog",
+      name: "Heat Test Load",
+      powerUse: 0,
+      heatOutput: 30
+    });
+    const definitionsById = {
+      ...nodeDefinitionsById,
+      [definition.id]: definition
+    };
+    const graph = createSingleNodeGraph(definition);
+    const tickedState = tickGameState(graph.state, definitionsById);
+
+    const model = buildResourceBarModel(tickedState, definitionsById);
+
+    expect(model.warning).toMatchObject({
+      nodeId: graph.nodeId,
+      reason: "heat_throttled",
+      severity: "critical",
+      reasonLabel: "Heat Pressure High",
+      reasonText: "Heat pressure is 300% and is reducing Heat Test Load throughput.",
+      metricSummary: "Heat: 30/10 safe capacity.",
+      recommendedAction:
+        "Unlock cooling research or reduce heat output before expanding this branch."
+    });
+    expect(model.heat).toMatchObject({
+      pressurePercent: 300,
+      warning: true,
+      critical: true
+    });
+  });
+
+  it("builds a missing input bottleneck message with affected node details", () => {
+    const state = createParserOnlyGraph();
+    const selectedState = selectNode(state, { nodeId: "node_parser_1" });
+    const tickedState = tickGameState(selectedState, nodeDefinitionsById);
+
+    const inspector = buildInspectorModel(tickedState, nodeDefinitionsById);
+
+    expect(inspector.kind).toBe("node");
+
+    if (inspector.kind !== "node") {
+      return;
+    }
+
+    expect(inspector.bottleneck).toMatchObject({
+      nodeId: "node_parser_1",
+      nodeName: "Parser",
+      reason: "input_starved",
+      severity: "critical",
+      reasonLabel: "Input Missing",
+      reasonText: "Parser needs 8/s Raw Data but is receiving 0/s.",
+      metricSummary: "Raw Data: 0/s received / 8/s needed.",
+      recommendedAction:
+        "Connect an upstream Raw Data source or increase upstream throughput."
+    });
+  });
+
+  it("keeps bottleneck models stable when no bottleneck exists", () => {
+    const state = createSingleNodeGraph(
+      requireNodeDefinition("internet_feed")
+    ).state;
+    const tickedState = tickGameState(state, nodeDefinitionsById);
+    const resourceBar = buildResourceBarModel(tickedState, nodeDefinitionsById);
+    const tooltip = buildNodeTooltipModel(
+      tickedState,
+      nodeDefinitionsById,
+      "node_internet_feed_1"
+    );
+
+    expect(resourceBar.warning).toBeUndefined();
+    expect(tooltip?.bottleneck).toBeUndefined();
   });
 
   it("derives tooltip metrics from active research effects", () => {
@@ -376,6 +507,84 @@ function createInternetFeedParserGraph(): {
     internetFeedId: internetFeed.value.id,
     parserId: parser.value.id
   };
+}
+
+function createParserOnlyGraph(): GameState {
+  const parser = addNode(
+    createInitialGameState("2026-06-11T00:00:00.000Z"),
+    {
+      definitionId: "parser",
+      position: { x: 100, y: 0 }
+    }
+  );
+
+  return parser.state;
+}
+
+function createSingleNodeGraph(definition: NodeDefinition): {
+  state: GameState;
+  nodeId: NodeId;
+} {
+  const node = addNode(createInitialGameState("2026-06-11T00:00:00.000Z"), {
+    definitionId: definition.id,
+    position: { x: 0, y: 0 }
+  });
+
+  return {
+    state: node.state,
+    nodeId: node.value.id
+  };
+}
+
+function createTestNodeDefinition({
+  id,
+  name,
+  powerUse,
+  heatOutput
+}: {
+  id: string;
+  name: string;
+  powerUse: number;
+  heatOutput: number;
+}): NodeDefinition {
+  return {
+    id,
+    name,
+    category: "infrastructure",
+    description: "Test-only load node.",
+    baseCost: 0,
+    costGrowth: 1,
+    inputs: [],
+    outputs: [
+      {
+        id: "raw_out",
+        direction: "output",
+        resourceType: "rawData",
+        throughput: 1
+      }
+    ],
+    baseStats: {
+      produces: { rawData: 1 },
+      consumes: {},
+      computeProduced: 0,
+      computeUsed: 0,
+      powerUse,
+      heatOutput,
+      storageCapacity: 0
+    },
+    upgradeScaling: {},
+    unlockRequirements: []
+  };
+}
+
+function requireNodeDefinition(id: string): NodeDefinition {
+  const definition = nodeDefinitionsById[id];
+
+  if (definition === undefined) {
+    throw new Error(`Missing test node definition ${id}.`);
+  }
+
+  return definition;
 }
 
 function mustConnect(

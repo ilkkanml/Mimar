@@ -116,9 +116,22 @@ function NodeInspector({
         {model.bottleneck === undefined ? (
           <p className="inspector-section__body">No major bottleneck.</p>
         ) : (
-          <div className="bottleneck-card">
+          <div
+            className={[
+              "bottleneck-card",
+              `bottleneck-card--${model.bottleneck.severity}`
+            ].join(" ")}
+          >
             <strong>{model.bottleneck.reasonLabel}</strong>
             <p>{model.bottleneck.summary}</p>
+            {model.bottleneck.metricSummary === undefined ? null : (
+              <p className="bottleneck-card__metric">
+                {model.bottleneck.metricSummary}
+              </p>
+            )}
+            <p className="bottleneck-card__action">
+              {model.bottleneck.recommendedAction}
+            </p>
           </div>
         )}
       </section>

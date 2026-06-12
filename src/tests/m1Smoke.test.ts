@@ -181,7 +181,8 @@ describe("M1 smoke coverage", () => {
     expect(inspector.name).toBe("Parser");
     expect(inspector.bottleneck).toMatchObject({
       reason: "compute_limited",
-      recommendedAction: "Add CPU Rack or reduce competing compute demand."
+      recommendedAction:
+        "Add CPU Rack, unlock compute-efficiency research, or reduce competing compute demand."
     });
   });
 });
