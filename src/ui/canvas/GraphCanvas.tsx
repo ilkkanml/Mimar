@@ -10,16 +10,19 @@ import { buildNodeTooltipModel } from "../panels/panelModels";
 import { validateConnection } from "../../game/graph/validation";
 import { EdgePreview, EdgeView } from "./EdgeView";
 import { getPortAnchor } from "./geometry";
+import { NodePalette } from "../panels/NodePalette";
 import { NodeTooltip } from "./NodeTooltip";
 import { NodeView } from "./NodeView";
 
 import type {
   GameState,
+  NodeDefinitionId,
   NodeId,
   PortDirection,
   PortId,
   Vec2
 } from "../../game/state/types";
+import type { NodePaletteModel } from "../panels/nodePaletteModels";
 
 type NodeDragState = {
   nodeId: NodeId;
@@ -36,8 +39,10 @@ type ConnectionDraftState = {
 
 type GraphCanvasProps = {
   gameState: GameState;
+  nodePaletteModel: NodePaletteModel;
   onCommitCurrentState: (previousState: GameState) => void;
   onCommitStateChange: (updater: (currentState: GameState) => GameState) => void;
+  onPlaceNode: (definitionId: NodeDefinitionId) => void;
   onTransientStateChange: (
     updater: (currentState: GameState) => GameState
   ) => void;
@@ -45,8 +50,10 @@ type GraphCanvasProps = {
 
 export function GraphCanvas({
   gameState,
+  nodePaletteModel,
   onCommitCurrentState,
   onCommitStateChange,
+  onPlaceNode,
   onTransientStateChange
 }: GraphCanvasProps) {
   const [nodeDrag, setNodeDrag] = useState<NodeDragState | null>(null);
@@ -283,6 +290,7 @@ export function GraphCanvas({
       onPointerMove={handleCanvasPointerMove}
       onPointerUp={clearInteractionState}
     >
+      <NodePalette model={nodePaletteModel} onPlace={onPlaceNode} />
       <svg className="graph-canvas__edges" aria-hidden="true">
         {Object.values(gameState.graph.edges).map((edge) => (
           <EdgeView
