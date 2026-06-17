@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { contractDefinitionsById } from "../game/data/contracts";
-import { nodeDefinitionsById } from "../game/data/nodeDefinitions";
+import { nodeDefinitions, nodeDefinitionsById } from "../game/data/nodeDefinitions";
 import {
   researchDefinitions,
   researchDefinitionsById
@@ -12,6 +12,10 @@ import {
   selectNode
 } from "../game/state/actions";
 import { claimContractReward } from "../game/state/contractActions";
+import {
+  getNextNodePlacementPosition,
+  placeNode
+} from "../game/state/nodePlacement";
 import { unlockResearch } from "../game/state/researchActions";
 import {
   upgradeSelectedNodeMax,
@@ -45,8 +49,9 @@ import {
   buildResearchPanelModel,
   buildResourceBarModel
 } from "../ui/panels/panelModels";
+import { buildNodePaletteModel } from "../ui/panels/nodePaletteModels";
 
-import type { GameState } from "../game/state/types";
+import type { GameState, NodeDefinitionId } from "../game/state/types";
 import type { SaveStatusModel } from "../ui/panels/CommandStrip";
 
 export function App() {
@@ -86,6 +91,10 @@ export function App() {
   );
   const researchPanelModel = useMemo(
     () => buildResearchPanelModel(gameState, researchDefinitions),
+    [gameState]
+  );
+  const nodePaletteModel = useMemo(
+    () => buildNodePaletteModel(gameState, nodeDefinitions),
     [gameState]
   );
 
@@ -239,6 +248,30 @@ export function App() {
     });
   }
 
+  function handlePlaceNode(definitionId: NodeDefinitionId) {
+    const result = placeNode(gameState, nodeDefinitionsById, {
+      definitionId,
+      position: getNextNodePlacementPosition(gameState)
+    });
+
+    if (!result.ok) {
+      setSaveStatus({
+        text: formatNodePlacementError(result.reason, result.cost),
+        tone: "warning"
+      });
+      return;
+    }
+
+    setGameHistory((currentHistory) => pushHistory(currentHistory, result.state));
+    setSaveStatus({
+      text:
+        result.cost <= 0
+          ? `Placed ${result.node.definitionId}.`
+          : `Placed ${result.node.definitionId} for $${result.cost}.`,
+      tone: "success"
+    });
+  }
+
   return (
     <main className="app-root">
       <div className="app-shell">
@@ -246,6 +279,7 @@ export function App() {
         <div className="app-shell__workspace">
           <GraphCanvas
             gameState={gameState}
+            nodePaletteModel={nodePaletteModel}
             onCommitCurrentState={(previousState) =>
               setGameHistory((currentHistory) =>
                 pushHistory(
@@ -260,6 +294,7 @@ export function App() {
                 pushHistory(currentHistory, updater(currentHistory.current))
               )
             }
+            onPlaceNode={handlePlaceNode}
             onTransientStateChange={(updater) =>
               setGameHistory((currentHistory) =>
                 replaceHistoryCurrent(
@@ -385,4 +420,16 @@ function formatUpgradeError(reason: string): string {
   };
 
   return messages[reason] ?? "Upgrade failed.";
+}
+
+function formatNodePlacementError(reason: string, cost: number | undefined): string {
+  const messages: Record<string, string> = {
+    insufficient_money:
+      cost === undefined
+        ? "Not enough money to place that node."
+        : `Need $${cost} to place that node.`,
+    missing_definition: "Node placement failed. Definition is missing."
+  };
+
+  return messages[reason] ?? "Node placement failed.";
 }
