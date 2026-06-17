@@ -5,9 +5,8 @@ Date: 2026-06-16
 ## Repository State
 
 - Current branch: `main`
-- Latest local commit before this handoff note: `af433043eed29c878234aeaf20de0257bf30f7b9`
-- Latest `origin/main` commit before this handoff note: `af433043eed29c878234aeaf20de0257bf30f7b9`
-- Working tree before this handoff note: clean
+- Latest safe baseline before M2-008: `9fc424ec5660228984e53854168c2853ad800fbf`
+- Latest feature commit after M2-008 implementation pass: `6e647430b00bb43c946f4dec78315374faecdf3e`
 - Save schema: unchanged at `schemaVersion: 0`
 
 ## Completed
@@ -19,48 +18,58 @@ Date: 2026-06-16
 - M2-004 Buy Max and Upgrade Scaling is complete.
 - M2-005 Undo/Redo v0 is complete.
 - M2-006 Node Tooltip Metrics v0 is complete.
-- M2-007 Better Bottleneck Messages v0 is complete and pushed to `origin/main`.
+- M2-007 Better Bottleneck Messages v0 is complete.
+- M2-008 Node Palette Placement v0 has been implemented as a GitHub patch pass.
+
+## M2-008 Implementation Summary
+
+- Added node placement domain action.
+- Added deterministic placement position helper.
+- Added placement cost handling from node definition `baseCost`.
+- Added insufficient-money guard.
+- Added automatic selection for newly placed nodes.
+- Added node palette view model and tests.
+- Added minimal Node Palette UI on the canvas.
+- Wired placement through the existing app/history path so placement can participate in undo/redo.
+- Added save/load persistence coverage for newly placed nodes.
 
 ## Not Started
 
-- M2-008 Node Palette Placement v0 has not been started.
-- No new M2 task has been started after M2-007.
-- Side Operations, crypto/cyber systems, Blueprint Library, Staging Room, Market, Campaign systems, monetization systems, prestige/reset systems, full tutorial/notification systems, and new visual direction remain out of scope.
+- No task after M2-008 has been started.
+- Side Operations, Blueprint Library, Staging Room, Market, Campaign systems, monetization systems, prestige/reset systems, full tutorial/notification systems, and new visual direction remain out of scope.
 
 ## Partially Done
 
-- None known.
+- M2-008 code and tests were written through GitHub.
+- Local verification still needs to be run because ChatGPT cannot execute the project test suite in the user's local repo.
 
-## Last Successful Checks
+## Required Local Checks
 
-Last full verification was for M2-007 on 2026-06-12:
+Run locally before approving M2-008 freeze:
 
-- `npm.cmd run lint`: passed
-- `npm.cmd test`: passed, 14 test files / 84 tests
-- `npm.cmd run build`: passed
-- `git diff --check`: passed with only LF-to-CRLF working-copy warnings
-- Browser smoke: passed at `http://127.0.0.1:5173/`
+- `npm.cmd run lint`
+- `npm.cmd test`
+- `npm.cmd run build`
+- `git diff --check`
 
-Browser smoke details:
+Browser smoke should verify:
 
-- App started without console errors.
-- Graph rendered.
-- Power/Heat displayed.
-- Contracts displayed and claim flow worked.
-- Research displayed.
-- Upgrade flow worked.
-- Undo/Redo worked.
-- Node tooltip focus/click path worked and updated after upgrade.
-- Resource Bar and Inspector showed clearer bottleneck reason, metric summary, and recommendation.
-- Save -> New System -> Load restored saved state.
-
-Note: Browser automation did not reliably synthesize direct pointer hover for tooltip smoke, but the app tooltip path was verified through keyboard/click focus and the node remains wired through `onPointerEnter`.
+- App starts without console errors.
+- Existing seeded graph still renders.
+- Node Palette displays.
+- Free node placement works.
+- Paid node placement is disabled or rejected when money is insufficient.
+- Newly placed node can be moved.
+- Newly placed node can be connected if ports allow.
+- Power/Heat, Contracts, Research, Upgrades, Undo/Redo, Tooltip, Bottleneck messages still work.
+- Save -> New System -> Load preserves newly placed node.
 
 ## Suggested Next Task
 
-Start M2-008 Node Palette Placement v0 only after explicit user approval.
+Only after local checks pass: close/commit any local fixes if needed, then decide the next M2 item.
 
 ## Known Risks / TODOs
 
-- `CODEX_START_HERE.md` may contain stale milestone wording from earlier phases; always follow the latest user prompt and current project docs.
-- No checks were rerun on 2026-06-16 because no code changes were present before this handoff note.
+- M2-008 was committed as multiple GitHub patch commits instead of one local commit.
+- CI status was not available from GitHub for the latest commit at the time of handoff.
+- If local checks fail, fix only M2-008 issues before starting the next task.
